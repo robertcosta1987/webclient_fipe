@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* `flash` keyframe — used by the "row just added" highlight in CarrosTable
+ * and (indirectly, via Tailwind's bg-amber-100) by the autofill flash on
+ * inputs in the Add modal. Subtle amber sweep that fades to transparent. */
+@keyframes flash {
+  0%   { background-color: rgba(254, 243, 199, 1); } /* amber-100 */
+  100% { background-color: transparent; }
+}
+
+body {
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
