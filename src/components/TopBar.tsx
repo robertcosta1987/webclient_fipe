@@ -16,22 +16,26 @@ export function TopBar() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-          <div className="flex items-center gap-6">
-            <div className="font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              Concessionária Demo
-            </div>
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--bg)]/85 backdrop-blur supports-[backdrop-filter]:bg-[var(--bg)]/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between h-16">
+          {/* Wordmark — a hazard-tape orange bar next to a stencil display name.
+              Subtle service-bay vibe without going full mechanic. */}
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center gap-3 rise rise-d1 group">
+              <span className="block w-1.5 h-7 bg-[var(--accent)] group-hover:bg-[var(--accent-hot)] transition-colors" />
+              <span className="font-display uppercase tracking-[0.18em] text-[var(--fg-strong)] text-lg leading-none">
+                Concessionária <span className="text-[var(--accent)]">/</span> Demo
+              </span>
+            </Link>
             <nav className="flex items-center gap-1">
-              {nav.map((it) => {
+              {nav.map((it, i) => {
                 const active = pathname === it.href || (it.href !== "/" && pathname?.startsWith(it.href));
                 if (it.disabled) {
                   return (
                     <span
                       key={it.href}
                       title="Em breve"
-                      className="px-3 py-1.5 rounded-md text-sm text-slate-400 cursor-not-allowed select-none"
+                      className={`px-3 py-1.5 text-sm font-medium tracking-wide text-[var(--fg-faint)] cursor-not-allowed select-none rise rise-d${i + 2}`}
                     >
                       {it.label}
                     </span>
@@ -41,13 +45,16 @@ export function TopBar() {
                   <Link
                     key={it.href}
                     href={it.href}
-                    className={`px-3 py-1.5 rounded-md text-sm ${
+                    className={`relative px-3 py-1.5 text-sm font-medium tracking-wide transition-colors rise rise-d${i + 2} ${
                       active
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-700 hover:bg-slate-100"
+                        ? "text-[var(--fg-strong)]"
+                        : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
                     }`}
                   >
                     {it.label}
+                    {active && (
+                      <span className="absolute left-3 right-3 -bottom-[17px] h-[2px] bg-[var(--accent)]" />
+                    )}
                   </Link>
                 );
               })}
@@ -55,7 +62,7 @@ export function TopBar() {
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm"
+            className="btn-primary text-sm rise rise-d4"
           >
             + Adicionar Veículo
           </button>

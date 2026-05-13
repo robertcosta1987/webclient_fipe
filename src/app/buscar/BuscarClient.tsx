@@ -27,31 +27,29 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
   function runSearch(e: React.FormEvent) {
     e.preventDefault();
     start(async () => {
-      // Cast: server action accepts the union; we trust the dropdown to
-      // emit only valid values.
       const next = await searchCarros(q, scope as Parameters<typeof searchCarros>[1]);
       setRows(next);
     });
   }
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={runSearch} className="flex flex-wrap gap-2 items-end bg-white border border-slate-200 rounded-lg p-3">
-        <div className="flex-1 min-w-[16rem]">
-          <label className="block text-xs text-slate-600 mb-1">Termo</label>
+    <div className="space-y-5">
+      <form onSubmit={runSearch} className="surface flex flex-wrap gap-3 items-end p-4 rise rise-d3">
+        <div className="flex-1 min-w-[18rem]">
+          <label className="block text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)] mb-1">Termo</label>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="ex.: SAVEIRO, BELO HORIZONTE, 2019…"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+            className="input"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-600 mb-1">Campo</label>
+          <label className="block text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)] mb-1">Campo</label>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+            className="input"
           >
             {SCOPES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -61,14 +59,14 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
         <button
           type="submit"
           disabled={pending}
-          className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm disabled:opacity-50"
+          className="btn-primary text-sm"
         >
           {pending ? "Buscando…" : "Buscar"}
         </button>
         <button
           type="button"
           onClick={() => { setQ(""); setScope("qualquer"); setRows(initial); }}
-          className="px-3 py-2 rounded-md text-sm text-slate-600 hover:bg-slate-100"
+          className="btn-ghost text-sm"
         >
           Limpar
         </button>

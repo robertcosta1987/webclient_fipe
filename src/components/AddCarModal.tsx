@@ -303,18 +303,25 @@ function ModalInner({ onClose }: { onClose: () => void }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 bg-slate-900/40 flex items-start justify-center overflow-y-auto py-6">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 my-2">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-base font-semibold tracking-tight">Adicionar Veículo</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900 text-xl leading-none">×</button>
+    <div className="fixed inset-0 z-40 bg-black/65 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-8 px-4">
+      <div className="surface modal-pop w-full max-w-4xl">
+        <header className="flex items-center justify-between px-7 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3">
+            <span className="block w-1 h-5 bg-[var(--accent)]" />
+            <h2 className="font-display uppercase tracking-[0.16em] text-[var(--fg-strong)] text-base">
+              Adicionar Veículo
+            </h2>
+          </div>
+          <button onClick={onClose} className="btn-ghost text-xl leading-none px-2">×</button>
         </header>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          {/* Placa block — autofill trigger */}
+        <form onSubmit={handleSubmit} className="px-7 py-6 space-y-7">
+          {/* Hero block — the placa input is the headline element. Bigger,
+              louder, monospace + plate-readout styling, with a hot orange
+              focus ring. The helper line below describes the trigger. */}
           <section>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Placa <span className="text-rose-600">*</span>
+            <label className="block font-display uppercase tracking-[0.18em] text-xs text-[var(--accent)] mb-2">
+              Placa <span className="text-[var(--accent-hot)]">●</span>
             </label>
             <div className="relative">
               <input
@@ -329,41 +336,42 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                 inputMode="text"
                 autoComplete="off"
                 maxLength={7}
-                className={`w-56 font-mono tracking-wider rounded-md border px-3 py-2 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 ${
+                className={`input plate-readout text-3xl py-3 px-4 w-72 ${
                   lookupStatus === "err"
-                    ? "border-rose-400"
+                    ? "border-[var(--danger)]"
                     : lookupStatus === "ok"
-                    ? "border-emerald-400"
-                    : "border-slate-300"
-                } disabled:bg-slate-50 disabled:cursor-wait`}
+                    ? "border-[var(--success)]"
+                    : ""
+                }`}
+                style={{ textTransform: "uppercase" }}
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center">
                 {lookupStatus === "loading" && <Spinner />}
                 {lookupStatus === "ok" && <Check />}
               </span>
             </div>
-            <p id={helperId} className="text-sm text-slate-500 mt-1">
-              Digite a placa e pressione Enter para preencher automaticamente.
+            <p id={helperId} className="text-sm text-[var(--fg-muted)] mt-2">
+              Digite a placa e pressione <kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-elev-2)] font-mono text-xs text-[var(--fg)]">Enter</kbd> para preencher automaticamente.
             </p>
             {lookupErr && (
-              <p className="text-sm text-rose-600 mt-1">
+              <p className="text-sm mt-2 px-3 py-2 rounded border border-[var(--danger)]/50 bg-[var(--danger)]/10 text-[var(--danger)]">
                 {lookupErr}{" "}
-                <button type="button" onClick={runLookup} className="underline hover:text-rose-700">
+                <button type="button" onClick={runLookup} className="underline hover:text-[var(--fg)]">
                   Tentar novamente
                 </button>
               </p>
             )}
             {duplicate && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded mt-2 px-3 py-2">
-                Veículo já cadastrado em {new Date(duplicate.criado_em).toLocaleString("pt-BR")}.{" "}
-                <Link href={`/carros-ativos?placa=${encodeURIComponent(duplicate.placa)}`} className="underline">
+              <p className="text-sm mt-2 px-3 py-2 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/8 text-[var(--fg)]">
+                Veículo <span className="plate-tag mx-1">{duplicate.placa}</span> já cadastrado em {new Date(duplicate.criado_em).toLocaleString("pt-BR")}.{" "}
+                <Link href={`/carros-ativos?placa=${encodeURIComponent(duplicate.placa)}`} className="underline text-[var(--accent)]">
                   Ver registro existente
                 </Link>
               </p>
             )}
             {showOverwriteBanner && pendingNewPayload && (
-              <div className="text-sm bg-amber-50 border border-amber-200 rounded mt-2 px-3 py-2 flex items-center justify-between gap-3">
-                <span>Placa alterada. Substituir os outros campos com os novos dados?</span>
+              <div className="text-sm mt-2 px-3 py-2 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/8 flex items-center justify-between gap-3">
+                <span className="text-[var(--fg)]">Placa alterada. Substituir os outros campos com os novos dados?</span>
                 <span className="flex gap-2">
                   <button
                     type="button"
@@ -372,7 +380,7 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                       setPendingNewPayload(null);
                       setShowOverwriteBanner(false);
                     }}
-                    className="px-2 py-1 text-xs rounded bg-amber-600 text-white hover:bg-amber-700"
+                    className="btn-primary text-xs px-2 py-1"
                   >
                     Substituir
                   </button>
@@ -382,7 +390,7 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                       setPendingNewPayload(null);
                       setShowOverwriteBanner(false);
                     }}
-                    className="px-2 py-1 text-xs rounded border border-amber-300 hover:bg-amber-100"
+                    className="btn-ghost text-xs"
                   >
                     Manter
                   </button>
@@ -391,14 +399,16 @@ function ModalInner({ onClose }: { onClose: () => void }) {
             )}
           </section>
 
-          {/* The other sections — one block per logical group */}
+          {/* Field sections — display-font headings as section dividers */}
           {SECTIONS.filter((s) => s.id !== "id" || true).map((sec) => {
             const fields = FIELDS.filter((f) => f.section === sec.id);
             if (fields.length === 0) return null;
             return (
               <section key={sec.id}>
-                <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">
+                <h3 className="font-display uppercase tracking-[0.18em] text-[10px] text-[var(--fg-muted)] mb-3 flex items-center gap-2">
+                  <span className="block h-px bg-[var(--border)] flex-1 max-w-12" />
                   {sec.title}
+                  <span className="block h-px bg-[var(--border)] flex-1" />
                 </h3>
                 <div className="grid grid-cols-6 gap-3">
                   {fields.map((f) => (
@@ -417,25 +427,25 @@ function ModalInner({ onClose }: { onClose: () => void }) {
           })}
 
           {/* Footer */}
-          <footer className="flex items-center justify-between pt-4 border-t border-slate-200">
-            <p className="text-xs text-slate-500">
+          <footer className="flex items-center justify-between pt-5 border-t border-[var(--border)]">
+            <p className="text-xs text-[var(--fg-muted)]">
               {lookupStatus === "ok" && parseValorFipe(form.valor) != null
-                ? `Valor FIPE: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseValorFipe(form.valor)!)}`
+                ? <>FIPE: <span className="font-mono text-[var(--fg)]">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseValorFipe(form.valor)!)}</span></>
                 : "Todos os campos podem ser editados antes de salvar."}
             </p>
             <div className="flex items-center gap-2">
-              {submitErr && <span className="text-xs text-rose-600 mr-2">{submitErr}</span>}
+              {submitErr && <span className="text-xs text-[var(--danger)] mr-2">{submitErr}</span>}
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-2 text-sm rounded text-slate-700 hover:bg-slate-100"
+                className="btn-ghost text-sm"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={submitting || !validFormat}
-                className="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary text-sm"
               >
                 {submitting ? "Salvando…" : "Cadastrar veículo"}
               </button>
@@ -463,15 +473,13 @@ function FieldInput({
   const colSpan = field.width === "full" ? "col-span-6" : field.width === "half" ? "col-span-3" : "col-span-2";
   return (
     <div className={colSpan}>
-      <label className="block text-xs text-slate-600 mb-1">{field.label}</label>
+      <label className="block text-[10px] uppercase tracking-[0.14em] text-[var(--fg-muted)] mb-1">{field.label}</label>
       <input
         ref={inputRef}
         type={field.type === "number" ? "number" : "text"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-colors duration-500 ${
-          flash ? "bg-amber-100" : "bg-white"
-        }`}
+        className={`input ${flash ? "flash-once" : ""}`}
       />
     </div>
   );
@@ -479,15 +487,15 @@ function FieldInput({
 
 function Spinner() {
   return (
-    <svg className="animate-spin h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
-      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    <svg className="spin h-5 w-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 function Check() {
   return (
-    <svg className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+    <svg className="h-5 w-5 text-[var(--success)]" viewBox="0 0 20 20" fill="currentColor">
       <path
         fillRule="evenodd"
         d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42L8.5 12.08l6.79-6.79a1 1 0 011.414 0z"

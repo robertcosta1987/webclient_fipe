@@ -1,10 +1,34 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Big_Shoulders, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { TopBar } from "@/components/TopBar";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Three fonts, three jobs:
+//   - Big Shoulders Display: condensed Chicago-workwear caps for h1/wordmarks.
+//     Borrowed from the city of Chicago's identity system — heavy, stencil-ish,
+//     not the "Space Grotesk" / "Inter" default everyone reaches for.
+//   - IBM Plex Sans: body. Engineered grotesque with diacritics that handle
+//     Brazilian Portuguese cleanly; reads less corporate than Inter.
+//   - JetBrains Mono: plate readouts + duplicates badge. Slashed zero matters
+//     because Brazilian plates mix O and 0.
+const display = Big_Shoulders({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["500", "700", "900"],
+  display: "swap",
+});
+const body = IBM_Plex_Sans({
+  variable: "--font-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Concessionária Demo · CRM",
@@ -15,11 +39,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--fg)]">
+        {/* Atmospheric background: warm radial bleed + diagonal workshop hatching.
+            Pointer-events-none so it doesn't eat clicks. */}
+        <div className="fixed inset-0 -z-10 atmos" aria-hidden />
         <TopBar />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6">{children}</main>
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8">{children}</main>
       </body>
     </html>
   );

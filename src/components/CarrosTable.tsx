@@ -16,7 +16,7 @@ const fmtBRL = (n: number | null) =>
 
 const fmtDate = (s: string) => {
   try {
-    return new Date(s).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    return new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   } catch {
     return s;
   }
@@ -25,27 +25,30 @@ const fmtDate = (s: string) => {
 export function CarrosTable({ rows, highlightPlaca, emptyMessage }: Props) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-12 text-center text-slate-500 text-sm">
-        {emptyMessage ?? "Nenhum veículo encontrado."}
+      <div className="surface rise rise-d3 px-6 py-16 text-center text-[var(--fg-muted)] text-sm border-dashed">
+        <div className="font-display uppercase tracking-[0.2em] text-base text-[var(--fg)] mb-1">
+          Garagem vazia
+        </div>
+        <p>{emptyMessage ?? "Nenhum veículo encontrado."}</p>
       </div>
     );
   }
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+    <div className="car-table rise rise-d3">
+      <table className="w-full">
+        <thead>
           <tr>
-            <th className="text-left px-3 py-2">Placa</th>
-            <th className="text-left px-3 py-2">Modelo</th>
-            <th className="text-left px-3 py-2">Ano</th>
-            <th className="text-left px-3 py-2">Cor</th>
-            <th className="text-left px-3 py-2">Município / UF</th>
-            <th className="text-right px-3 py-2">Valor FIPE</th>
-            <th className="text-left px-3 py-2">Criado em</th>
-            <th className="text-right px-3 py-2">Ações</th>
+            <th>Placa</th>
+            <th>Modelo</th>
+            <th className="w-16">Ano</th>
+            <th>Cor</th>
+            <th>Município / UF</th>
+            <th className="text-right">Valor FIPE</th>
+            <th>Criado</th>
+            <th className="text-right">Ações</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {rows.map((r) => (
             <Row key={r.id} row={r} flash={r.placa === highlightPlaca} />
           ))}
@@ -91,89 +94,88 @@ function Row({ row, flash }: { row: Carro; flash: boolean }) {
   }
 
   return (
-    <tr className={flash ? "animate-[flash_1.2s_ease-out_1]" : undefined}>
-      <td className="px-3 py-2 font-mono">{row.placa}</td>
-      <td className="px-3 py-2">
+    <tr className={flash ? "flash-once" : undefined}>
+      <td>
+        <span className="plate-tag">{row.placa}</span>
+      </td>
+      <td>
         {editing ? (
-          <input value={draft.modelo ?? ""} onChange={(e) => set("modelo", e.target.value)} className={cellInput} />
+          <input value={draft.modelo ?? ""} onChange={(e) => set("modelo", e.target.value)} className="input py-1" />
         ) : (
-          row.modelo ?? "—"
+          <span className="text-[var(--fg)]">{row.modelo ?? "—"}</span>
         )}
       </td>
-      <td className="px-3 py-2 w-20">
+      <td>
         {editing ? (
           <input
             type="number"
             value={draft.ano_modelo ?? ""}
             onChange={(e) => set("ano_modelo", e.target.value === "" ? null : Number(e.target.value))}
-            className={cellInput}
+            className="input py-1 w-20"
           />
         ) : (
-          row.ano_modelo ?? "—"
+          <span className="font-mono text-[var(--fg-muted)]">{row.ano_modelo ?? "—"}</span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td>
         {editing ? (
-          <input value={draft.cor ?? ""} onChange={(e) => set("cor", e.target.value)} className={cellInput} />
+          <input value={draft.cor ?? ""} onChange={(e) => set("cor", e.target.value)} className="input py-1" />
         ) : (
           row.cor ?? "—"
         )}
       </td>
-      <td className="px-3 py-2">
+      <td>
         {editing ? (
           <div className="flex gap-1">
             <input
               value={draft.municipio ?? ""}
               onChange={(e) => set("municipio", e.target.value)}
-              className={cellInput}
+              className="input py-1"
               placeholder="município"
             />
             <input
               value={draft.uf ?? ""}
               onChange={(e) => set("uf", e.target.value.slice(0, 2).toUpperCase())}
-              className={`${cellInput} w-14`}
+              className="input py-1 w-16"
               placeholder="UF"
             />
           </div>
         ) : (
-          [row.municipio, row.uf].filter(Boolean).join(" / ") || "—"
+          <span className="text-[var(--fg-muted)]">{[row.municipio, row.uf].filter(Boolean).join(" / ") || "—"}</span>
         )}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      <td className="text-right tabular-nums">
         {editing ? (
           <input
             type="number"
             step="0.01"
             value={draft.valor_fipe ?? ""}
             onChange={(e) => set("valor_fipe", e.target.value === "" ? null : Number(e.target.value))}
-            className={`${cellInput} text-right`}
+            className="input py-1 text-right"
           />
         ) : (
-          fmtBRL(row.valor_fipe)
+          <span className="font-mono text-[var(--fg)]">{fmtBRL(row.valor_fipe)}</span>
         )}
       </td>
-      <td className="px-3 py-2 text-slate-500">{fmtDate(row.criado_em)}</td>
-      <td className="px-3 py-2 text-right whitespace-nowrap">
-        {err && <span className="text-xs text-rose-600 mr-2">{err}</span>}
+      <td className="text-[var(--fg-faint)] font-mono text-xs">{fmtDate(row.criado_em)}</td>
+      <td className="text-right whitespace-nowrap">
+        {err && <span className="text-xs text-[var(--danger)] mr-2">{err}</span>}
         {editing ? (
           <>
-            <button onClick={save} disabled={pending} className={btnPrimary}>Salvar</button>
-            <button onClick={() => { setDraft(row); setEditing(false); setErr(null); }} disabled={pending} className={btnGhost}>
+            <button onClick={save} disabled={pending} className="btn-primary text-xs px-2 py-1 ml-2">
+              Salvar
+            </button>
+            <button onClick={() => { setDraft(row); setEditing(false); setErr(null); }} disabled={pending} className="btn-ghost text-xs ml-1">
               Cancelar
             </button>
           </>
         ) : (
           <>
-            <button onClick={() => setEditing(true)} className={btnGhost}>Editar</button>
-            <button onClick={remove} disabled={pending} className={btnDanger}>Excluir</button>
+            <button onClick={() => setEditing(true)} className="btn-ghost text-xs">Editar</button>
+            <button onClick={remove} disabled={pending} className="btn-danger text-xs ml-1">Excluir</button>
           </>
         )}
       </td>
     </tr>
   );
 }
-
-const cellInput = "w-full rounded border border-slate-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none";
-const btnGhost = "ml-2 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 rounded";
-const btnPrimary = "ml-2 px-2 py-1 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded disabled:opacity-50";
-const btnDanger = "ml-2 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 rounded";
