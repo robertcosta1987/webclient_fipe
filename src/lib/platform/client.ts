@@ -4,15 +4,17 @@
 //   { sources: [{ id, ok, data: { dados: { dadosDoVeiculo, fipes }}}], ... }
 //
 // The webclient wants a FLAT object (see types.ts). This module:
-//   1. Calls GET {DADOCAR_API_URL}/api/vehicle/plate/{placa} with the
-//      function-key header (today). When APIM products are wired
-//      [next-steps/001], swap to `Ocp-Apim-Subscription-Key`.
+//   1. Calls GET {DADOCAR_API_URL}/vehicle/plate/{placa} via APIM gateway,
+//      authenticating with the per-customer `Ocp-Apim-Subscription-Key`.
+//      DADOCAR_API_URL points at the product path (e.g. .../v1) so we only
+//      append the operation here. APIM injects the backend function-key
+//      and forwards to the enrichment Function App.
 //   2. Picks the first ok Infocar-shaped source.
 //   3. Flattens dadosDoVeiculo + fipes[0] into the canonical payload.
 //   4. Zod-validates so a payload-shape regression surfaces here, not in
 //      the UI.
 //
-// Strictly server-side. The function key never reaches the browser.
+// Strictly server-side. The subscription key never reaches the browser.
 
 import "server-only";
 import { VehiclePayloadSchema, type VehiclePayload } from "./types";
@@ -42,8 +44,12 @@ export async function fetchVehicleByPlate(placa: string, signal?: AbortSignal): 
 
   let res: Response;
   try {
-    res = await fetch(`${base}/api/vehicle/plate/${encodeURIComponent(placa)}`, {
-      headers: { "x-functions-key": key, Accept: "application/json" },
+    // Goes through APIM gateway (dadocar-dev-apim-brs.azure-api.net/v1).
+    // APIM injects the function-key on the backend hop; the customer-facing
+    // credential is the per-subscription Ocp-Apim-Subscription-Key. Base
+    // URL already includes the /v1 product path — append the operation only.
+    res = await fetch(`${base}/vehicle/plate/${encodeURIComponent(placa)}`, {
+      headers: { "Ocp-Apim-Subscription-Key": key, Accept: "application/json" },
       signal: ac.signal,
       cache: "no-store",
     });
