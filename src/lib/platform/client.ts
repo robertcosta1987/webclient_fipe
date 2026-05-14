@@ -17,7 +17,7 @@
 // Strictly server-side. The subscription key never reaches the browser.
 
 import "server-only";
-import { VehiclePayloadSchema, type VehiclePayload } from "./types";
+import { VehiclePayloadSchema, FipeOptionSchema, type VehiclePayload, type FipeOption } from "./types";
 
 const TIMEOUT_MS = 8_000;
 
@@ -27,7 +27,17 @@ function envOrThrow(name: string): string {
   return v;
 }
 
-export type PlatformOk = { ok: true; payload: VehiclePayload; cached: boolean };
+export type PlatformOk = {
+  ok: true;
+  /** Flattened payload — dadosDoVeiculo + fipes[0] merged for the form. */
+  payload: VehiclePayload;
+  /** Every FIPE entry the vendor returned (0..N). UI uses this for the
+   *  picker when length > 1; flattened payload already reflects fipes[0]. */
+  fipeOptions: FipeOption[];
+  /** The full unwrapped aggregator response, for the "Ler JSON" modal. */
+  raw: unknown;
+  cached: boolean;
+};
 export type PlatformErr = { ok: false; error: string; status?: number };
 
 export async function fetchVehicleByPlate(placa: string, signal?: AbortSignal): Promise<PlatformOk | PlatformErr> {
@@ -92,8 +102,20 @@ export async function fetchVehicleByPlate(placa: string, signal?: AbortSignal): 
   if (!source) return { ok: false, error: "no_data_for_plate", status: res.status };
 
   const veiculo = source.data!.dados!.dadosDoVeiculo!;
-  const fipe = source.data!.dados!.fipes?.[0] ?? {};
+  const fipesRaw = source.data!.dados!.fipes ?? [];
 
+  // Validate each FIPE option through the schema so the UI sees a clean
+  // array. Drop entries that fail to parse (extremely defensive — schema
+  // fields are all optional today). Keep ORIGINAL order; Infocar puts the
+  // best-match trim first in our limited sample.
+  const fipeOptions: FipeOption[] = fipesRaw
+    .map((f) => FipeOptionSchema.safeParse(f))
+    .filter((r) => r.success)
+    .map((r) => r.data!);
+
+  // Default-flatten with the first FIPE option; the UI may overwrite these
+  // form fields when the operator picks a different one from the dropdown.
+  const fipe = fipeOptions[0] ?? { codigoFipe: "", descricao: "", valor: "" };
   const flat = {
     ...veiculo,
     codigoFipe: fipe.codigoFipe ?? "",
@@ -106,5 +128,11 @@ export async function fetchVehicleByPlate(placa: string, signal?: AbortSignal): 
     return { ok: false, error: "platform_schema_mismatch" };
   }
 
-  return { ok: true, payload: parsed.data, cached: Boolean(wrapped.cached) };
+  return {
+    ok: true,
+    payload: parsed.data,
+    fipeOptions,
+    raw: body,
+    cached: Boolean(wrapped.cached),
+  };
 }

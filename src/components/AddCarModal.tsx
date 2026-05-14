@@ -27,7 +27,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import { lookupPlaca, insertCarro } from "@/app/actions/carros";
-import { parseValorFipe, type VehiclePayload } from "@/lib/platform/types";
+import { parseValorFipe, type VehiclePayload, type FipeOption } from "@/lib/platform/types";
 
 type Field = {
   key: keyof FormState;
@@ -182,7 +182,20 @@ function ModalInner({ onClose }: { onClose: () => void }) {
   /** Fields that were just autofilled — drives the amber-flash class. */
   const [recentlyAutofilled, setRecentlyAutofilled] = useState<Set<keyof FormState>>(new Set());
   const [showOverwriteBanner, setShowOverwriteBanner] = useState(false);
-  const [pendingNewPayload, setPendingNewPayload] = useState<VehiclePayload | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<{
+    payload: VehiclePayload;
+    fipeOptions: FipeOption[];
+    raw: unknown;
+  } | null>(null);
+
+  /** Full FIPE options list from the last autofill (0..N entries). */
+  const [fipeOptions, setFipeOptions] = useState<FipeOption[]>([]);
+  /** Operator's pick among fipeOptions. Defaults to 0 when length === 1,
+   *  null when length > 1 (forces a choice). */
+  const [selectedFipeIndex, setSelectedFipeIndex] = useState<number | null>(null);
+  /** The full unwrapped aggregator response — shown via the Ler JSON toggle. */
+  const [rawResponse, setRawResponse] = useState<unknown>(null);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   const [lookupStatus, setLookupStatus] = useState<"idle" | "loading" | "ok" | "err">("idle");
   const [lookupErr, setLookupErr] = useState<string | null>(null);
@@ -207,13 +220,39 @@ function ModalInner({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(t);
   }, [recentlyAutofilled]);
 
-  function applyPayload(p: VehiclePayload) {
+  function applyPayload(p: VehiclePayload, opts: FipeOption[], raw: unknown) {
     const next = payloadToForm(p);
     setForm(next);
     setLastAutofill(next);
     setRecentlyAutofilled(new Set(Object.keys(next) as Array<keyof FormState>));
+    setFipeOptions(opts);
+    // When the operator has to choose, leave nothing selected so submit gates
+    // until they pick. When there's 0 or 1 option, accept the default.
+    setSelectedFipeIndex(opts.length === 1 ? 0 : opts.length === 0 ? null : null);
+    setRawResponse(raw);
+    setShowRawJson(false);
     setTimeout(() => chassiRef.current?.focus(), 80);
   }
+
+  /** Operator picks one of the FIPE options from the dropdown. Updates the
+   *  three FIPE form fields to the chosen entry's values. */
+  function pickFipe(index: number) {
+    const opt = fipeOptions[index];
+    if (!opt) return;
+    setSelectedFipeIndex(index);
+    setForm((f) => ({
+      ...f,
+      codigoFipe: opt.codigoFipe || "",
+      descricao: opt.descricao || "",
+      valor: opt.valor || "",
+    }));
+    // Flash the three FIPE fields so the operator sees the substitution.
+    setRecentlyAutofilled(new Set(["codigoFipe", "descricao", "valor"]));
+  }
+
+  /** Two states block submit: a pending overwrite-banner decision (handled
+   *  separately) and a multi-FIPE situation where no pick has been made. */
+  const needsFipeChoice = fipeOptions.length > 1 && selectedFipeIndex === null;
 
   function hasManualEdits(): boolean {
     if (!lastAutofill) return false;
@@ -251,10 +290,10 @@ function ModalInner({ onClose }: { onClose: () => void }) {
       // Re-trigger guard: if other fields have been touched since the last
       // autofill, defer the apply until the operator confirms.
       if (lastAutofill && hasManualEdits()) {
-        setPendingNewPayload(res.payload);
+        setPendingPayload({ payload: res.payload, fipeOptions: res.fipeOptions, raw: res.raw });
         setShowOverwriteBanner(true);
       } else {
-        applyPayload(res.payload);
+        applyPayload(res.payload, res.fipeOptions, res.raw);
       }
     } catch (err) {
       if (ac.signal.aborted) return;
@@ -285,6 +324,10 @@ function ModalInner({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (!validFormat) {
       setSubmitErr("Informe uma placa válida antes de cadastrar.");
+      return;
+    }
+    if (needsFipeChoice) {
+      setSubmitErr("Escolha um FIPE antes de salvar.");
       return;
     }
     setSubmitErr(null);
@@ -369,15 +412,15 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                 </Link>
               </p>
             )}
-            {showOverwriteBanner && pendingNewPayload && (
+            {showOverwriteBanner && pendingPayload && (
               <div className="text-sm mt-2 px-3 py-2 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/8 flex items-center justify-between gap-3">
                 <span className="text-[var(--fg)]">Placa alterada. Substituir os outros campos com os novos dados?</span>
                 <span className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      applyPayload(pendingNewPayload);
-                      setPendingNewPayload(null);
+                      applyPayload(pendingPayload.payload, pendingPayload.fipeOptions, pendingPayload.raw);
+                      setPendingPayload(null);
                       setShowOverwriteBanner(false);
                     }}
                     className="btn-primary text-xs px-2 py-1"
@@ -387,7 +430,7 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                   <button
                     type="button"
                     onClick={() => {
-                      setPendingNewPayload(null);
+                      setPendingPayload(null);
                       setShowOverwriteBanner(false);
                     }}
                     className="btn-ghost text-xs"
@@ -410,6 +453,45 @@ function ModalInner({ onClose }: { onClose: () => void }) {
                   {sec.title}
                   <span className="block h-px bg-[var(--border)] flex-1" />
                 </h3>
+
+                {/* Multi-FIPE picker — only inside the FIPE section, and only
+                    when the vendor returned more than one option. The
+                    operator MUST pick before submit becomes available. */}
+                {sec.id === "fipe" && fipeOptions.length > 1 && (
+                  <div className={`mb-3 px-3 py-2 rounded border ${
+                    selectedFipeIndex === null
+                      ? "border-[var(--accent)]/60 bg-[var(--accent)]/10"
+                      : "border-[var(--success)]/40 bg-[var(--success)]/10"
+                  }`}>
+                    <p className="text-xs text-[var(--fg)] mb-2 flex items-center gap-2">
+                      <span className="font-mono">{fipeOptions.length}</span>
+                      <span>
+                        {selectedFipeIndex === null
+                          ? "valores FIPE encontrados para esta placa — escolha o correto antes de salvar."
+                          : "valores FIPE encontrados — você selecionou a opção abaixo:"}
+                      </span>
+                    </p>
+                    <select
+                      value={selectedFipeIndex ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") return;
+                        pickFipe(Number(v));
+                      }}
+                      className="input font-mono text-sm w-full"
+                    >
+                      {selectedFipeIndex === null && (
+                        <option value="" disabled>— escolha um —</option>
+                      )}
+                      {fipeOptions.map((opt, i) => (
+                        <option key={`${opt.codigoFipe}-${i}`} value={i}>
+                          {opt.codigoFipe} · {opt.descricao} · {opt.valor}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-6 gap-3">
                   {fields.map((f) => (
                     <FieldInput
@@ -426,10 +508,39 @@ function ModalInner({ onClose }: { onClose: () => void }) {
             );
           })}
 
+          {/* Ler JSON — visible after a successful lookup. Toggles a
+              collapsed/expanded pretty-printed view of the FULL aggregator
+              response (not the flattened form). Pure CSS-style toggle done
+              in JS for parity with the rest of the modal. */}
+          {rawResponse != null && (
+            <section>
+              <button
+                type="button"
+                onClick={() => setShowRawJson((v) => !v)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] text-xs uppercase tracking-[0.12em] font-medium transition-colors"
+                aria-expanded={showRawJson}
+              >
+                <span
+                  className="inline-block transition-transform"
+                  style={{ transform: showRawJson ? "rotate(90deg)" : "rotate(0deg)" }}
+                  aria-hidden
+                >▸</span>
+                {showRawJson ? "Ocultar JSON" : "Ler JSON"}
+              </button>
+              {showRawJson && (
+                <pre className="mt-2 max-h-96 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-elev-2)] text-[var(--fg)] p-3 text-[11px] leading-relaxed font-mono">
+                  {JSON.stringify(rawResponse, null, 2)}
+                </pre>
+              )}
+            </section>
+          )}
+
           {/* Footer */}
           <footer className="flex items-center justify-between pt-5 border-t border-[var(--border)]">
             <p className="text-xs text-[var(--fg-muted)]">
-              {lookupStatus === "ok" && parseValorFipe(form.valor) != null
+              {needsFipeChoice
+                ? <span className="text-[var(--accent)]">Escolha um FIPE antes de salvar.</span>
+                : lookupStatus === "ok" && parseValorFipe(form.valor) != null
                 ? <>FIPE: <span className="font-mono text-[var(--fg)]">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseValorFipe(form.valor)!)}</span></>
                 : "Todos os campos podem ser editados antes de salvar."}
             </p>
@@ -444,8 +555,9 @@ function ModalInner({ onClose }: { onClose: () => void }) {
               </button>
               <button
                 type="submit"
-                disabled={submitting || !validFormat}
+                disabled={submitting || !validFormat || needsFipeChoice}
                 className="btn-primary text-sm"
+                title={needsFipeChoice ? "Escolha um FIPE para habilitar" : undefined}
               >
                 {submitting ? "Salvando…" : "Cadastrar veículo"}
               </button>

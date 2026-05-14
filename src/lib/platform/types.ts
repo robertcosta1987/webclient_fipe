@@ -35,6 +35,15 @@ export const VehiclePayloadSchema = z.object({
 
 export type VehiclePayload = z.infer<typeof VehiclePayloadSchema>;
 
+/** One FIPE catalogue entry — Infocar returns 0..N of these per plate.
+ *  When there's more than one, the operator picks the correct trim/year. */
+export const FipeOptionSchema = z.object({
+  codigoFipe: z.string().optional().default(""),
+  descricao: z.string().optional().default(""),
+  valor: z.string().optional().default(""),
+});
+export type FipeOption = z.infer<typeof FipeOptionSchema>;
+
 /** Parse the vendor's `valor` (FIPE price) into a number.
  *
  *  Observed format: `"70,851.00"` — comma is THOUSANDS separator, dot is

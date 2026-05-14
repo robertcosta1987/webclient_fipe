@@ -16,13 +16,18 @@ import { revalidatePath } from "next/cache";
 import * as carros from "@/lib/db/carros";
 import type { EditableCol } from "@/lib/db/carros";
 import { fetchVehicleByPlate } from "@/lib/platform/client";
-import { type VehiclePayload } from "@/lib/platform/types";
+import { type VehiclePayload, type FipeOption } from "@/lib/platform/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 
 export type LookupResult =
   | {
       ok: true;
       payload: VehiclePayload;
+      /** Full list of FIPE matches Infocar returned. UI uses this for the
+       *  picker when length > 1; payload already reflects the first one. */
+      fipeOptions: FipeOption[];
+      /** The unflattened aggregator response, for the "Ler JSON" modal. */
+      raw: unknown;
       cached: boolean;
       duplicate: { id: string; placa: string; criado_em: string } | null;
     }
@@ -61,6 +66,8 @@ export async function lookupPlaca(rawPlaca: string): Promise<LookupResult> {
   return {
     ok: true,
     payload: platform.payload,
+    fipeOptions: platform.fipeOptions,
+    raw: platform.raw,
     cached: platform.cached,
     duplicate: existing
       ? { id: existing.id, placa: existing.placa, criado_em: existing.criado_em }
