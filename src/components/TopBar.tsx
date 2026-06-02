@@ -10,6 +10,7 @@ const nav = [
   { href: "/buscar", label: "Buscar" },
   { href: "/precos", label: "Preços" },
   { href: "/relatorios", label: "Relatórios", disabled: true },
+  { href: "/historico-kbb", label: "Histórico KBB" },
 ];
 
 export function TopBar() {

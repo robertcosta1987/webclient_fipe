@@ -12,7 +12,8 @@
 //      definition grid.
 //   6. Raw JSON expander for diagnostics / debugging.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { lookupPlacaPrecos, type PrecosLookupResult } from "@/app/actions/precos";
 import type { MolicarPayload, PriceRange } from "@/lib/pricing/types";
@@ -36,12 +37,27 @@ const KBB_CATEGORIES: Array<{
 ];
 
 export function PrecosClient() {
-  const [placa, setPlaca] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialPlaca = searchParams.get("placa") ?? "";
+  const [placa, setPlaca] = useState(initialPlaca);
   const [result, setResult] = useState<PrecosLookupResult | null>(null);
   const [pending, start] = useTransition();
 
   const placaNorm = normalizePlaca(placa);
   const placaOk = isValidPlaca(placaNorm);
+
+  // Auto-run when arriving with ?placa=X (deep-link from /historico-kbb).
+  useEffect(() => {
+    const q = searchParams.get("placa");
+    if (q && isValidPlaca(normalizePlaca(q))) {
+      const norm = normalizePlaca(q);
+      start(async () => {
+        const next = await lookupPlacaPrecos(norm);
+        setResult(next);
+      });
+    }
+  }, [searchParams]);
 
   function run(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +65,15 @@ export function PrecosClient() {
     start(async () => {
       const next = await lookupPlacaPrecos(placaNorm);
       setResult(next);
+    });
+  }
+
+  function forceRefresh() {
+    if (!placaOk) return;
+    start(async () => {
+      const next = await lookupPlacaPrecos(placaNorm, { forceRefresh: true });
+      setResult(next);
+      router.refresh(); // keep /historico-kbb fresh after a new row lands
     });
   }
 
@@ -101,7 +126,9 @@ export function PrecosClient() {
         </div>
       )}
 
-      {result?.ok === true && <PricingReport r={result} />}
+      {result?.ok === true && (
+        <PricingReport r={result} pending={pending} onForceRefresh={forceRefresh} />
+      )}
     </div>
   );
 }
@@ -110,7 +137,15 @@ export function PrecosClient() {
 // Rendering
 // ───────────────────────────────────────────────────────────────────────────
 
-function PricingReport({ r }: { r: Extract<PrecosLookupResult, { ok: true }> }) {
+function PricingReport({
+  r,
+  pending,
+  onForceRefresh,
+}: {
+  r: Extract<PrecosLookupResult, { ok: true }>;
+  pending: boolean;
+  onForceRefresh: () => void;
+}) {
   const { payload } = r;
   const decoder = payload.Decoder ?? {};
   const vehicle = payload.VehicleData ?? {};
@@ -119,6 +154,14 @@ function PricingReport({ r }: { r: Extract<PrecosLookupResult, { ok: true }> }) 
 
   return (
     <div className="space-y-6">
+      {r.fromCache && (
+        <CacheBadge
+          cachedAt={r.cachedAt}
+          pending={pending}
+          onForceRefresh={onForceRefresh}
+        />
+      )}
+
       <DecoderStrip
         placa={r.placa}
         decoder={decoder}
@@ -156,6 +199,50 @@ function PricingReport({ r }: { r: Extract<PrecosLookupResult, { ok: true }> }) 
       </details>
     </div>
   );
+}
+
+function CacheBadge({
+  cachedAt,
+  pending,
+  onForceRefresh,
+}: {
+  cachedAt: string | null;
+  pending: boolean;
+  onForceRefresh: () => void;
+}) {
+  const when = cachedAt ? new Date(cachedAt) : null;
+  const whenLabel = when
+    ? when.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+    : "data desconhecida";
+  const dayDelta = when ? daysSince(when) : null;
+  return (
+    <div className="surface border border-[var(--accent)]/40 p-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
+          Cache · 90 dias
+        </span>
+        <span className="text-[var(--fg-muted)]">
+          Última consulta em <span className="text-[var(--fg-strong)]">{whenLabel}</span>
+          {dayDelta !== null && (
+            <span className="text-[var(--fg-muted)]"> · {dayDelta} {dayDelta === 1 ? "dia atrás" : "dias atrás"}</span>
+          )}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onForceRefresh}
+        disabled={pending}
+        className="btn-ghost text-xs"
+      >
+        {pending ? "Consultando…" : "Forçar nova consulta"}
+      </button>
+    </div>
+  );
+}
+
+function daysSince(d: Date): number {
+  const ms = Date.now() - d.getTime();
+  return Math.max(0, Math.floor(ms / 86_400_000));
 }
 
 function DecoderStrip({

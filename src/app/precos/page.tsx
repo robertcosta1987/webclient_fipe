@@ -4,6 +4,7 @@
 // component; this file is just the section header pattern used elsewhere in
 // the app for consistency.
 
+import { Suspense } from "react";
 import { PrecosClient } from "./PrecosClient";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +26,13 @@ export default function PrecosPage() {
           Consulta de preços por placa via Molicar (decoder + KBB). Mostra as
           5 faixas KBB (zero-km, varejo, particular, troca, atacado) com
           mínimo, máximo e preço justo, além do preço Molicar e dos dados do
-          veículo.
+          veículo. Resultados ficam em cache por 90 dias e disponíveis em
+          <span className="font-mono"> /historico-kbb</span>.
         </p>
       </header>
-      <PrecosClient />
+      <Suspense fallback={null}>
+        <PrecosClient />
+      </Suspense>
     </section>
   );
 }
