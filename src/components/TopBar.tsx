@@ -8,6 +8,7 @@ import { AddCarModal } from "./AddCarModal";
 const nav = [
   { href: "/carros-ativos", label: "Carros Ativos" },
   { href: "/buscar", label: "Buscar" },
+  { href: "/precos", label: "Preços" },
   { href: "/relatorios", label: "Relatórios", disabled: true },
 ];
 
