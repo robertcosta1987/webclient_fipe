@@ -130,9 +130,13 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
 type Summary = { brand: string | null; model: string | null; modelYear: unknown; chassi: string | null };
 
 function summarize(data: ChecktudoData): Summary {
+  const marca = firstString(data, ["marca", "Marca"]);
+  const marcaModelo = firstString(data, ["marcaModelo", "MarcaModelo"]);
+  // Some products return `marca`/`modelo` separately; others only `marcaModelo`
+  // (e.g. "JEEP/JEEP/RENEGADE …"). Fall back to splitting it.
   return {
-    brand: firstString(data, ["marca", "Marca"]),
-    model: firstString(data, ["modelo", "Modelo", "marcaModelo", "MarcaModelo"]),
+    brand: marca || (marcaModelo ? marcaModelo.split("/")[0].trim() : null),
+    model: firstString(data, ["modelo", "Modelo"]) || marcaModelo,
     modelYear: firstValue(data, ["anoModelo", "AnoModelo", "anoFabricacao", "AnoFabricacao"]),
     chassi: firstString(data, ["chassi", "Chassi"]),
   };

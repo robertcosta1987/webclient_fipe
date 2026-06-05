@@ -45,6 +45,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   checktudo_rate_limited: "Limite de consultas excedido. Tente novamente em instantes.",
   poll_timeout: "O CheckTudo demorou demais para concluir a consulta. Tente novamente.",
   plate_not_found: "Placa não encontrada na base CheckTudo.",
+  duplicate_no_result: "Consulta já executada recentemente, mas o resultado não pôde ser recuperado. Tente novamente em instantes.",
   invalid_request: "Requisição inválida (placa ou produto).",
   invalid_plate: "Placa inválida. Use 7 caracteres (ex.: ABC1D23 ou ABC1234).",
   invalid_product: "Produto CheckTudo inválido.",
