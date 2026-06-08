@@ -214,3 +214,82 @@
 
 /* The page <main> sits on the light desktop; give content a touch of air. */
 .erp main { color: var(--fg); }
+
+/* ── Auth pages (login / register) ──────────────────────────────────────── */
+.erp .auth-wrap {
+  min-height: 68vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.erp .auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: #ffffff;
+  border: 1px solid #b4c7e2;
+  border-radius: 6px;
+  box-shadow: 0 12px 34px -14px rgba(20, 40, 80, 0.4);
+  overflow: hidden;
+}
+.erp .auth-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 18px;
+  background: linear-gradient(to bottom, #ffffff, #eaf1fb);
+  border-bottom: 1px solid #dce6f2;
+}
+.erp .auth-head-bar { width: 5px; height: 20px; background: #2a5db0; border-radius: 1px; }
+.erp .auth-title { color: #14315f; font-weight: 700; font-size: 15px; }
+.erp .auth-sub { color: #56627a; font-size: 12px; margin: 2px 18px 0; }
+.erp .auth-body { padding: 16px 18px 18px; }
+.erp .auth-field { margin-bottom: 12px; }
+.erp .auth-field label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #2a3340;
+  margin-bottom: 4px;
+}
+.erp .auth-field .input { width: 100%; height: 30px; }
+.erp .auth-actions { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
+.erp .auth-actions .btn-primary { width: 100%; justify-content: center; display: inline-flex; }
+.erp .auth-error {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e3b3b3;
+  background: #fbeaea;
+  color: #a31818;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.erp .auth-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f8;
+  font-size: 12px;
+  color: #56627a;
+  text-align: center;
+}
+.erp .auth-foot a { color: #1a5fb4; text-decoration: none; font-weight: 700; }
+.erp .auth-foot a:hover { text-decoration: underline; }
+
+/* User chip + logout in the tab bar */
+.erp .erp-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+.erp .erp-user-name { font-size: 12px; color: #14315f; font-weight: 700; }
+.erp .erp-user-role {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: #2a5db0;
+  border-radius: 3px;
+  padding: 1px 5px;
+}

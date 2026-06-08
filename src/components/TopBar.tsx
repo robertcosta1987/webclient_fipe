@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AddCarModal } from "./AddCarModal";
+import { logout } from "@/app/actions/auth";
 
 const nav = [
   { href: "/carros-ativos", label: "Carros Ativos" },
@@ -14,9 +15,13 @@ const nav = [
   { href: "/checktudo", label: "CheckTudo" },
 ];
 
-export function TopBar() {
+export function TopBar({ user }: { user?: { email: string; role: string } | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // No app chrome on the public auth pages.
+  if (pathname === "/login" || pathname === "/register") return null;
+
   return (
     <>
       <header className="erp-topbar sticky top-0 z-30">
@@ -47,11 +52,32 @@ export function TopBar() {
                 </Link>
               );
             })}
+            {user?.role === "admin" && (
+              <Link
+                href="/admin/convites"
+                className={`erp-navtab${pathname?.startsWith("/admin/convites") ? " erp-navtab--active" : ""}`}
+              >
+                Convites
+              </Link>
+            )}
           </nav>
+
+          {user && (
+            <div className="erp-user">
+              <span className="erp-user-name">{user.email}</span>
+              <span className="erp-user-role">{user.role}</span>
+            </div>
+          )}
 
           <button onClick={() => setOpen(true)} className="btn-primary erp-addbtn text-sm">
             + Adicionar Veículo
           </button>
+
+          {user && (
+            <form action={logout} style={{ marginBottom: 6 }}>
+              <button type="submit" className="btn-ghost text-sm">Sair</button>
+            </form>
+          )}
         </div>
       </header>
       <AddCarModal open={open} onClose={() => setOpen(false)} />

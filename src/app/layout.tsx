@@ -3,6 +3,7 @@ import { Big_Shoulders, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./enterprise.css";
 import { TopBar } from "@/components/TopBar";
+import { getSession } from "@/lib/auth/server";
 
 // Site-wide enterprise / ASP.NET-WebForms skin. `true` adds the `erp` class to
 // <body>, under which enterprise.css remaps the theme variables, restyles the
@@ -42,7 +43,17 @@ export const metadata: Metadata = {
   description: "Cliente CRM da plataforma Dadocar (demo).",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Session drives the user chip / admin link in the nav. Never let a missing
+  // secret or cookie error brick the shell (the auth pages must still render).
+  let user: { email: string; role: string } | null = null;
+  try {
+    const s = await getSession();
+    if (s) user = { email: s.email, role: s.role };
+  } catch {
+    user = null;
+  }
+
   return (
     <html
       lang="pt-BR"
@@ -52,7 +63,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {/* Atmospheric background: warm radial bleed + diagonal workshop hatching.
             Pointer-events-none so it doesn't eat clicks. */}
         <div className="fixed inset-0 -z-10 atmos" aria-hidden />
-        <TopBar />
+        <TopBar user={user} />
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8">{children}</main>
       </body>
     </html>
