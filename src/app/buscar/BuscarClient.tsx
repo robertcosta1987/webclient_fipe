@@ -33,7 +33,25 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
   }
 
   return (
-    <div className="space-y-5">
+    /* `.xp-window` / `.xp-titlebar` only render as a Windows XP window when an
+       ancestor carries `.xp-skin` (see buscar/page.tsx + xp.css). Without it,
+       this is just a plain wrapper — the title bar is hidden by default. */
+    <div className="xp-window">
+      <div className="xp-titlebar">
+        <span className="xp-titlebar-left">
+          <svg className="xp-titlebar-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="4.2" fill="#cfe3ff" stroke="#ffffff" strokeWidth="1.4" />
+            <line x1="9.7" y1="9.7" x2="14" y2="14" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <span className="xp-titlebar-text">Buscar — Consulta de Veículos</span>
+        </span>
+        <span className="xp-titlebar-buttons" aria-hidden="true">
+          <span className="xp-winbtn xp-winbtn--min">_</span>
+          <span className="xp-winbtn xp-winbtn--max">□</span>
+          <span className="xp-winbtn xp-winbtn--close">✕</span>
+        </span>
+      </div>
+      <div className="space-y-5 xp-window-body">
       <form onSubmit={runSearch} className="surface flex flex-wrap gap-3 items-end p-4 rise rise-d3">
         <div className="flex-1 min-w-[18rem]">
           <label className="block text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)] mb-1">Termo</label>
@@ -72,6 +90,7 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
         </button>
       </form>
       <CarrosTable rows={rows} emptyMessage="Nenhum veículo bate com a busca." />
+      </div>
     </div>
   );
 }
