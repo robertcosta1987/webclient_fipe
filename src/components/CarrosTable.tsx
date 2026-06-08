@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Carro } from "@/lib/db/carros";
 import { deleteCarro, updateCarro } from "@/app/actions/carros";
+import { Plate } from "@/components/Plate";
 
 type Props = {
   rows: Carro[];
@@ -96,7 +97,7 @@ function Row({ row, flash }: { row: Carro; flash: boolean }) {
   return (
     <tr className={flash ? "flash-once" : undefined}>
       <td>
-        <span className="plate-tag">{row.placa}</span>
+        <Plate placa={row.placa} size="sm" />
       </td>
       <td>
         {editing ? (

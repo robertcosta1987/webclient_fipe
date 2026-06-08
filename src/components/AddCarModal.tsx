@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import { lookupPlaca, insertCarro } from "@/app/actions/carros";
 import { parseValorFipe, type VehiclePayload, type FipeOption } from "@/lib/platform/types";
+import { Plate } from "@/components/Plate";
 
 type Field = {
   key: keyof FormState;
@@ -406,7 +407,7 @@ function ModalInner({ onClose }: { onClose: () => void }) {
             )}
             {duplicate && (
               <p className="text-sm mt-2 px-3 py-2 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/8 text-[var(--fg)]">
-                Veículo <span className="plate-tag mx-1">{duplicate.placa}</span> já cadastrado em {new Date(duplicate.criado_em).toLocaleString("pt-BR")}.{" "}
+                Veículo <Plate placa={duplicate.placa} size="sm" className="mx-1" /> já cadastrado em {new Date(duplicate.criado_em).toLocaleString("pt-BR")}.{" "}
                 <Link href={`/carros-ativos?placa=${encodeURIComponent(duplicate.placa)}`} className="underline text-[var(--accent)]">
                   Ver registro existente
                 </Link>

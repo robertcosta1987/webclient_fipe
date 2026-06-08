@@ -8,6 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
+import { Plate } from "@/components/Plate";
 
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -41,12 +42,7 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
         className="w-full flex flex-wrap items-center gap-4 p-4 text-left hover:bg-[var(--bg-elev)]/40 transition-colors"
         aria-expanded={open}
       >
-        <span
-          className="px-3 py-1 font-mono tracking-[0.22em] text-base"
-          style={{ background: "var(--plate-yellow)", color: "var(--plate-ink)" }}
-        >
-          {row.placa}
-        </span>
+        <Plate placa={row.placa} size="md" />
 
         <div className="flex-1 min-w-[12rem]">
           <p className="text-sm text-[var(--fg-strong)] font-medium">

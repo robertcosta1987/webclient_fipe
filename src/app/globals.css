@@ -97,6 +97,95 @@ html, body {
   text-transform: uppercase;
 }
 
+/* ─── Realistic plate badge (type chosen from the plate format) ─────────── */
+/* Sizes drive everything via custom props. */
+.plate {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  vertical-align: middle;
+  user-select: none;
+  line-height: 1;
+  --num: 19px; --head-h: 14px; --head-f: 8px; --px: 9px; --py: 3px;
+}
+.plate--sm { --num: 14px; --head-h: 11px; --head-f: 6px;   --px: 6px;  --py: 2px; }
+.plate--md { --num: 19px; --head-h: 14px; --head-f: 8px;   --px: 9px;  --py: 3px; }
+.plate--lg { --num: 26px; --head-h: 17px; --head-f: 9.5px; --px: 12px; --py: 4px; }
+
+.plate-old-num,
+.plate-mer-num {
+  font-family: var(--font-display), "Arial Narrow", Impact, sans-serif;
+  font-weight: 700;
+  color: #111;
+  text-align: center;
+  font-size: var(--num);
+  letter-spacing: 0.06em;
+  padding: var(--py) var(--px);
+  white-space: nowrap;
+}
+
+/* ── Mercosul: white plate, blue BRASIL strip + flag ── */
+.plate--mer {
+  background: #fff;
+  border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.plate-mer-head {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: var(--head-h);
+  padding: 0 4px;
+  background: linear-gradient(180deg, #1349be 0%, #0a3392 100%);
+  color: #fff;
+}
+.plate-mer-br {
+  font-family: var(--font-mono), monospace;
+  font-size: calc(var(--head-f) - 0.5px);
+  font-weight: 700;
+  opacity: 0.95;
+}
+.plate-mer-title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  font-size: var(--head-f);
+  letter-spacing: 0.16em;
+}
+.plate-mer-flag { height: calc(var(--head-h) - 5px); width: auto; border-radius: 1px; display: block; }
+
+/* ── Old / classic: gray plate, UF-CIDADE header, dot separator ── */
+.plate--old {
+  position: relative;
+  background: linear-gradient(180deg, #dadada 0%, #c3c3c3 55%, #bcbcbc 100%);
+  border: 2px solid #161616;
+  border-radius: 4px;
+  padding: 1px 0 0;
+  overflow: hidden;
+}
+.plate-old-head {
+  text-align: center;
+  color: #1b1b1b;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  font-size: var(--head-f);
+  letter-spacing: 0.12em;
+  padding-top: 1px;
+}
+.plate-old-num { color: #141414; padding-top: 0; }
+.plate-screw {
+  position: absolute;
+  top: 3px;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6f6f6f, #2a2a2a);
+}
+.plate-screw--l { left: 5px; }
+.plate-screw--r { right: 5px; }
+
 /* ─── Atmospheric background ──────────────────────────────────────────── */
 .atmos {
   background-color: var(--bg);

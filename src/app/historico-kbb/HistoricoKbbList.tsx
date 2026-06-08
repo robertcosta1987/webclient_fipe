@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { KbbConsultaRow } from "@/lib/db/kbbConsultas";
+import { Plate } from "@/components/Plate";
 
 const BRL = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -56,12 +57,7 @@ function ConsultaCard({ row }: { row: KbbConsultaRow }) {
         className="w-full flex flex-wrap items-center gap-4 p-4 text-left hover:bg-[var(--bg-elev)]/40 transition-colors"
         aria-expanded={open}
       >
-        <span
-          className="px-3 py-1 font-mono tracking-[0.22em] text-base"
-          style={{ background: "var(--plate-yellow)", color: "var(--plate-ink)" }}
-        >
-          {row.placa}
-        </span>
+        <Plate placa={row.placa} size="md" />
 
         <div className="flex-1 min-w-[12rem]">
           <p className="text-sm text-[var(--fg-strong)] font-medium">

@@ -17,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { lookupPlacaPrecos, type PrecosLookupResult } from "@/app/actions/precos";
 import type { MolicarPayload, PriceRange } from "@/lib/pricing/types";
+import { Plate } from "@/components/Plate";
 
 // Visual order matches a typical dealership negotiation flow: what's the
 // car worth new → what does it sell for → what does the dealer pay.
@@ -258,15 +259,7 @@ function DecoderStrip({
   // so the placa reads like a found object on the page.
   return (
     <div className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
-      <span
-        className="px-3 py-1 font-mono tracking-[0.22em] text-lg"
-        style={{
-          background: "var(--plate-yellow)",
-          color: "var(--plate-ink)",
-        }}
-      >
-        {decoder.Plate ?? placa}
-      </span>
+      <Plate placa={decoder.Plate ?? placa} size="lg" />
       <Field label="Chassi (VIN)" value={decoder.Vin} mono />
       <Field label="Ano do modelo" value={decoder.ModelYear} />
       <Field label="Molicar ID" value={decoder.MolicarId} mono />

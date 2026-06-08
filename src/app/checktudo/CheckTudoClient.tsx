@@ -19,6 +19,7 @@ import {
   CHECKTUDO_DEFAULT_PRODUCT,
   type ChecktudoData,
 } from "@/lib/checktudo/types";
+import { Plate } from "@/components/Plate";
 
 export function CheckTudoClient() {
   const router = useRouter();
@@ -143,12 +144,7 @@ function ChecktudoReport({
       {r.fromCache && <CacheBadge cachedAt={r.cachedAt} pending={pending} onForceRefresh={onForceRefresh} />}
 
       <header className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
-        <span
-          className="px-3 py-1 font-mono tracking-[0.22em] text-lg"
-          style={{ background: "var(--plate-yellow)", color: "var(--plate-ink)" }}
-        >
-          {r.placa}
-        </span>
+        <Plate placa={r.placa} size="lg" />
         <Field label="Produto" value={`${r.product.name} (${r.product.code})`} />
         {r.upstreamLatencyMs !== null && <Field label="Latência upstream" value={`${r.upstreamLatencyMs} ms`} />}
         {r.queryId && <Field label="Query ID" value={r.queryId} mono />}
