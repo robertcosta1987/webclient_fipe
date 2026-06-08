@@ -1,0 +1,272 @@
+/* ============================================================================
+ * erp.css — classic enterprise / ASP.NET-WebForms look for the /buscar page.
+ * Modeled on the reference screenshot: tabbed window, blue toolbar, bordered
+ * group boxes, light-blue fields, right-side info boxes, purple notice.
+ *
+ * REVERSIBLE BY DESIGN:
+ *   - Everything is scoped under `.erp-skin` (only present on /buscar).
+ *   - Toggle OFF instantly: set `ENTERPRISE_THEME = false` in buscar/page.tsx
+ *     → the page renders the original plain Buscar layout instead.
+ *   - Remove entirely: delete this file + BuscarEnterprise.tsx, drop the
+ *     import/flag in page.tsx and the enterprise branch in BuscarClient.tsx.
+ *   - No shared/global files were touched.
+ * ========================================================================== */
+
+.erp-skin {
+  --erp-blue: #2a5db0;
+  --erp-line: #a9c0e0;
+  --erp-field-border: #7f9db9;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 14px 14px 18px;
+  color: #1c2733;
+  font-family: Tahoma, Verdana, "Segoe UI", Geneva, sans-serif;
+  font-size: 12px;
+}
+.erp-skin * { box-sizing: border-box; }
+
+/* ── Tab strip ──────────────────────────────────────────────────────────── */
+.erp-skin .erp-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  border-bottom: 2px solid #2f5a9c;
+  padding-left: 4px;
+}
+.erp-skin .erp-tab {
+  display: inline-block;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: none;
+  background: linear-gradient(to bottom, #6f9bd6 0%, #4a7ec2 50%, #3a6cb0 100%);
+  border: 1px solid #2f5a9c;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  position: relative;
+  top: 1px;
+}
+.erp-skin .erp-tab:hover { filter: brightness(1.06); }
+.erp-skin .erp-tab--active {
+  color: #4a4327;
+  background: linear-gradient(to bottom, #fffef4 0%, #fbf6d6 60%, #f3edc2 100%);
+  border-color: #cabf86;
+  box-shadow: inset 0 1px 0 #ffffff;
+  top: 2px;
+  z-index: 2;
+  padding-top: 8px;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────────────── */
+.erp-skin .erp-window {
+  border: 1px solid var(--erp-line);
+  border-top: none;
+  background: #ffffff;
+}
+.erp-skin .erp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: linear-gradient(to bottom, #eef4fc 0%, #dbe6f5 100%);
+  border-bottom: 1px solid var(--erp-line);
+}
+.erp-skin .erp-tbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #14315f;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.erp-skin .erp-tbtn:hover:not(:disabled) {
+  background: #d4e4f7;
+  border-color: #9cbbe4;
+}
+.erp-skin .erp-tbtn:active:not(:disabled) { background: #bcd4f0; }
+.erp-skin .erp-tbtn:disabled { color: #9fb2c9; cursor: default; }
+.erp-skin .erp-tbtn svg { display: block; }
+.erp-skin .erp-tbtn--nav { padding: 3px 5px; color: #2a5db0; font-weight: 700; }
+.erp-skin .erp-tsep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: #b9cbe6;
+  box-shadow: 1px 0 0 #ffffff;
+}
+.erp-skin .erp-spacer { flex: 1; }
+.erp-skin .erp-help {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7db4f0, #2f74d6);
+  color: #fff; font-weight: 700; font-size: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* ── Body: main + sidebar ───────────────────────────────────────────────── */
+.erp-skin .erp-body {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  align-items: flex-start;
+}
+.erp-skin .erp-main { flex: 1 1 auto; min-width: 0; }
+.erp-skin .erp-sidebar { flex: 0 0 234px; width: 234px; }
+
+/* ── Group boxes (fieldset) ─────────────────────────────────────────────── */
+.erp-skin .erp-group {
+  border: 1px solid #b4c7e2;
+  border-radius: 4px;
+  padding: 12px 16px 14px;
+  margin: 0 0 14px;
+  background: #fbfdff;
+}
+.erp-skin .erp-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--erp-blue);
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+.erp-skin .erp-field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.erp-skin .erp-field:last-child { margin-bottom: 0; }
+.erp-skin .erp-label {
+  flex: 0 0 86px;
+  text-align: left;
+  color: #2a3340;
+  font-size: 11.5px;
+}
+.erp-skin .erp-control { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.erp-skin .erp-input,
+.erp-skin .erp-select {
+  font-family: Tahoma, Verdana, sans-serif;
+  font-size: 12px;
+  color: #111;
+  background: #ffffff;
+  border: 1px solid var(--erp-field-border);
+  border-top-color: #5b7390;
+  border-left-color: #5b7390;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08);
+  padding: 4px 6px;
+  height: 26px;
+}
+.erp-skin .erp-input { flex: 1 1 auto; min-width: 0; }
+.erp-skin .erp-input:focus,
+.erp-skin .erp-select:focus { outline: none; border-color: #2a6fd6; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.08), 0 0 0 1px #2a6fd6; }
+.erp-skin .erp-select { background: linear-gradient(to bottom, #ffffff, #eef2f8); }
+/* Red "required" accent bar, like the reference's filled fields */
+.erp-skin .erp-req { border-left: 3px solid #cc1f1f; padding-left: 6px; }
+.erp-skin .erp-asterisk { color: #cc1f1f; font-weight: 700; }
+
+/* ── Results grid (CarrosTable) ─────────────────────────────────────────── */
+.erp-skin .car-table {
+  border: 1px solid var(--erp-line);
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #fff;
+  font-family: Tahoma, Verdana, sans-serif;
+}
+.erp-skin .car-table table { font-size: 11.5px; color: #1c2733; }
+.erp-skin .car-table thead th {
+  background: linear-gradient(to bottom, #eaf1fb 0%, #cfdef2 100%);
+  color: #14315f;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  border-right: 1px solid #b9cbe6;
+  border-bottom: 1px solid var(--erp-line);
+  padding: 5px 8px;
+}
+.erp-skin .car-table tbody td { padding: 4px 8px; border-bottom: 1px solid #e6edf6; }
+.erp-skin .car-table tbody tr:nth-child(even) { background: #f4f8fd; }
+.erp-skin .car-table tbody tr:hover { background: #dcebff; }
+.erp-skin .surface.border-dashed {
+  background: #fff; border: 1px solid var(--erp-line); border-radius: 0;
+  color: #555; font-family: Tahoma, sans-serif;
+}
+
+/* ── Sidebar boxes ──────────────────────────────────────────────────────── */
+.erp-skin .erp-box {
+  border: 1px solid #b4c7e2;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.erp-skin .erp-box-title {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 9px;
+  color: var(--erp-blue);
+  font-weight: 700;
+  font-size: 12.5px;
+  background: linear-gradient(to bottom, #fbfdff, #eef4fc);
+  border-bottom: 1px solid #dce6f2;
+}
+.erp-skin .erp-links { list-style: none; margin: 0; padding: 6px 0; }
+.erp-skin .erp-links li { margin: 0; }
+.erp-skin .erp-links a {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 12px;
+  color: #1a5fb4;
+  text-decoration: none;
+  font-size: 12px;
+}
+.erp-skin .erp-links a:hover { text-decoration: underline; background: #f1f6fd; }
+.erp-skin .erp-box-pad { padding: 9px; }
+.erp-skin .erp-value-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 4px 9px;
+  font-size: 11.5px;
+}
+.erp-skin .erp-value {
+  min-width: 84px;
+  text-align: right;
+  background: #ececec;
+  border: 1px solid #c7c7c7;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 1px rgba(0,0,0,0.08);
+  padding: 2px 6px;
+  font-family: Tahoma, Verdana, sans-serif;
+  color: #333;
+}
+
+/* ── Purple "notice" box (bottom-left) ──────────────────────────────────── */
+.erp-skin .erp-notice {
+  width: 268px;
+  margin-top: 14px;
+  border: 1px solid #9a86b8;
+  border-radius: 1px;
+  box-shadow: 0 1px 3px rgba(60, 40, 90, 0.2);
+}
+.erp-skin .erp-notice-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 9px;
+  background: #c9b8d9;
+  color: #3a2a55;
+  font-weight: 700;
+  font-size: 12px;
+}
+.erp-skin .erp-notice-x { cursor: pointer; color: #5a4a75; font-weight: 700; padding: 0 2px; }
+.erp-skin .erp-notice-x:hover { color: #2a1a45; }
+.erp-skin .erp-notice-body {
+  padding: 14px 14px;
+  background: #e7ddf2;
+  color: #4a3a66;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+}

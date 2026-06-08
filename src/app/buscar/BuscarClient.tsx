@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { CarrosTable } from "@/components/CarrosTable";
 import type { Carro } from "@/lib/db/carros";
 import { searchCarros } from "@/app/actions/carros";
+import { BuscarEnterprise } from "./BuscarEnterprise";
 
 const SCOPES: Array<{ value: string; label: string }> = [
   { value: "qualquer", label: "Qualquer campo" },
@@ -18,7 +19,7 @@ const SCOPES: Array<{ value: string; label: string }> = [
   { value: "codigo_fipe", label: "Código FIPE" },
 ];
 
-export function BuscarClient({ initial }: { initial: Carro[] }) {
+export function BuscarClient({ initial, enterprise = false }: { initial: Carro[]; enterprise?: boolean }) {
   const [q, setQ] = useState("");
   const [scope, setScope] = useState<string>("qualquer");
   const [rows, setRows] = useState<Carro[]>(initial);
@@ -32,26 +33,40 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
     });
   }
 
+  function clear() {
+    setQ("");
+    setScope("qualquer");
+    setRows(initial);
+  }
+
+  function refresh() {
+    start(async () => {
+      const next = await searchCarros(q, scope as Parameters<typeof searchCarros>[1]);
+      setRows(next);
+    });
+  }
+
+  // Enterprise / ASP.NET-WebForms look (see erp.css). Toggled by page.tsx.
+  if (enterprise) {
+    return (
+      <BuscarEnterprise
+        q={q}
+        scope={scope}
+        rows={rows}
+        pending={pending}
+        scopes={SCOPES}
+        onQ={setQ}
+        onScope={setScope}
+        onSearch={runSearch}
+        onClear={clear}
+        onRefresh={refresh}
+      />
+    );
+  }
+
+  // ── Original plain layout (fallback when the theme is off) ────────────────
   return (
-    /* `.xp-window` / `.xp-titlebar` only render as a Windows XP window when an
-       ancestor carries `.xp-skin` (see buscar/page.tsx + xp.css). Without it,
-       this is just a plain wrapper — the title bar is hidden by default. */
-    <div className="xp-window">
-      <div className="xp-titlebar">
-        <span className="xp-titlebar-left">
-          <svg className="xp-titlebar-icon" viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="6.5" cy="6.5" r="4.2" fill="#cfe3ff" stroke="#ffffff" strokeWidth="1.4" />
-            <line x1="9.7" y1="9.7" x2="14" y2="14" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <span className="xp-titlebar-text">Buscar — Consulta de Veículos</span>
-        </span>
-        <span className="xp-titlebar-buttons" aria-hidden="true">
-          <span className="xp-winbtn xp-winbtn--min">_</span>
-          <span className="xp-winbtn xp-winbtn--max">□</span>
-          <span className="xp-winbtn xp-winbtn--close">✕</span>
-        </span>
-      </div>
-      <div className="space-y-5 xp-window-body">
+    <div className="space-y-5">
       <form onSubmit={runSearch} className="surface flex flex-wrap gap-3 items-end p-4 rise rise-d3">
         <div className="flex-1 min-w-[18rem]">
           <label className="block text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)] mb-1">Termo</label>
@@ -64,33 +79,20 @@ export function BuscarClient({ initial }: { initial: Carro[] }) {
         </div>
         <div>
           <label className="block text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)] mb-1">Campo</label>
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            className="input"
-          >
+          <select value={scope} onChange={(e) => setScope(e.target.value)} className="input">
             {SCOPES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="btn-primary text-sm"
-        >
+        <button type="submit" disabled={pending} className="btn-primary text-sm">
           {pending ? "Buscando…" : "Buscar"}
         </button>
-        <button
-          type="button"
-          onClick={() => { setQ(""); setScope("qualquer"); setRows(initial); }}
-          className="btn-ghost text-sm"
-        >
+        <button type="button" onClick={clear} className="btn-ghost text-sm">
           Limpar
         </button>
       </form>
       <CarrosTable rows={rows} emptyMessage="Nenhum veículo bate com a busca." />
-      </div>
     </div>
   );
 }
