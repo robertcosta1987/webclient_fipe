@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import { Big_Shoulders, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import "./enterprise.css";
 import { TopBar } from "@/components/TopBar";
+
+// Site-wide enterprise / ASP.NET-WebForms skin. `true` adds the `erp` class to
+// <body>, under which enterprise.css remaps the theme variables, restyles the
+// shared primitives and turns the nav into a tab strip. Set to `false` to
+// restore the original dark "workshop" theme. (Full removal: see enterprise.css.)
+const ENTERPRISE_THEME = true;
 
 // Three fonts, three jobs:
 //   - Big Shoulders Display: condensed Chicago-workwear caps for h1/wordmarks.
@@ -41,7 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="pt-BR"
       className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--fg)]">
+      <body className={`min-h-full flex flex-col bg-[var(--bg)] text-[var(--fg)]${ENTERPRISE_THEME ? " erp" : ""}`}>
         {/* Atmospheric background: warm radial bleed + diagonal workshop hatching.
             Pointer-events-none so it doesn't eat clicks. */}
         <div className="fixed inset-0 -z-10 atmos" aria-hidden />

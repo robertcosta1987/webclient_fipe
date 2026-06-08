@@ -1,0 +1,216 @@
+/* ============================================================================
+ * enterprise.css — site-wide "enterprise / ASP.NET-WebForms" skin.
+ *
+ * Strategy: the app themes everything through CSS variables (--bg, --fg-*,
+ * --accent, ...) plus a few primitive classes (.surface, .input, .btn-*,
+ * .car-table, .font-display). This file REMAPS those variables and restyles
+ * the primitives under a single `.erp` class on <body>, so every page adopts
+ * the look with no per-page edits. TopBar tabs are styled here too.
+ *
+ * REVERSIBLE: set `ENTERPRISE_THEME = false` in app/layout.tsx (drops the
+ * `erp` body class) → the original dark "workshop" theme returns. Everything
+ * here is scoped under `.erp`; remove this file + the import + the TopBar
+ * markup to delete entirely. (Full undo: `git revert` the commit.)
+ * ========================================================================== */
+
+/* ── Palette remap (light enterprise) ───────────────────────────────────── */
+.erp {
+  --bg:           #eef2f8;   /* desktop */
+  --bg-elev:      #ffffff;   /* panels / cards */
+  --bg-elev-2:    #ffffff;   /* inputs (restyled below) */
+  --border:       #b4c7e2;
+  --border-hot:   #2a6fd6;
+  --hairline:     #e1e8f2;
+
+  --fg:           #1c2733;
+  --fg-strong:    #14315f;   /* headings: dark enterprise blue */
+  --fg-muted:     #56627a;
+  --fg-faint:     #8a95a8;
+
+  --accent:       #2a5db0;   /* enterprise blue */
+  --accent-hot:   #2a6fd6;
+  --accent-soft:  rgba(42, 93, 176, 0.10);
+
+  --success:      #2e8b3d;
+  --danger:       #cc2222;
+
+  --plate-yellow: #e9c000;
+  --plate-ink:    #14110b;
+
+  font-family: Tahoma, Verdana, "Segoe UI", Geneva, sans-serif;
+  color: var(--fg);
+}
+.erp input, .erp select, .erp textarea, .erp button {
+  font-family: Tahoma, Verdana, "Segoe UI", sans-serif;
+}
+
+/* Light desktop background instead of the dark workshop atmosphere. */
+.erp .atmos {
+  background-color: #e7edf6;
+  background-image:
+    radial-gradient(900px 600px at 88% -10%, rgba(42, 93, 176, 0.10), transparent 60%),
+    radial-gradient(700px 500px at -10% 110%, rgba(42, 93, 176, 0.07), transparent 70%);
+}
+
+/* Headings: de-stencil → Tahoma, normal case, enterprise blue. */
+.erp .font-display {
+  font-family: Tahoma, Verdana, "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+.erp .surface {
+  background: #fbfdff;
+  border: 1px solid #b4c7e2;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
+/* ── Inputs & selects ───────────────────────────────────────────────────── */
+.erp .input {
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  border-top-color: #5b7390;
+  border-left-color: #5b7390;
+  color: #111;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08);
+  padding: 0.32rem 0.5rem;
+  font-size: 12px;
+}
+.erp .input::placeholder { color: #9aa6b6; }
+.erp .input:focus {
+  outline: none;
+  border-color: #2a6fd6;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px #2a6fd6;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.erp .btn-primary {
+  font-family: Tahoma, Verdana, sans-serif;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 30, 0, 0.5);
+  background: linear-gradient(to bottom, #7ec46a 0%, #5aa84a 10%, #459338 42%, #3c8b32 56%, #43972f 92%, #2f7d24 100%);
+  border: 1px solid #2c6e22;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -8px 10px -8px rgba(0, 0, 0, 0.3);
+  padding: 0.4rem 0.95rem;
+}
+.erp .btn-primary:hover:not(:disabled) { filter: brightness(1.08); border-color: #fea800; background: linear-gradient(to bottom, #7ec46a 0%, #5aa84a 10%, #459338 42%, #3c8b32 56%, #43972f 92%, #2f7d24 100%); }
+.erp .btn-primary:active:not(:disabled) { filter: brightness(0.94); transform: translateY(1px); }
+.erp .btn-primary:disabled { filter: grayscale(0.5) brightness(0.97); opacity: 1; }
+
+.erp .btn-ghost {
+  font-size: 12px;
+  color: #1c2733;
+  background: linear-gradient(to bottom, #fdfeff 0%, #f2f1e8 46%, #e2dfcf 90%, #e7e4d4 100%);
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #fff;
+  padding: 0.34rem 0.8rem;
+}
+.erp .btn-ghost:hover { color: #000; background: linear-gradient(to bottom, #fffef6, #f5f3e6); border-color: #fea800; box-shadow: inset 0 0 0 1px #ffe7a8, 0 0 4px rgba(255, 168, 0, 0.45); }
+.erp .btn-ghost:active { box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.25); }
+
+.erp .btn-danger {
+  font-size: 12px;
+  color: #fff;
+  background: linear-gradient(to bottom, #f7906c 0%, #e15a39 45%, #d23b1e 100%);
+  border: 1px solid #a32c14;
+  border-radius: 4px;
+  padding: 0.3rem 0.7rem;
+}
+.erp .btn-danger:hover:not(:disabled) { filter: brightness(1.06); background: linear-gradient(to bottom, #f7906c 0%, #e15a39 45%, #d23b1e 100%); }
+
+/* ── Tables / grids ─────────────────────────────────────────────────────── */
+.erp .car-table {
+  border: 1px solid #a9c0e0;
+  border-radius: 0;
+  background: #ffffff;
+}
+.erp .car-table thead { background: none; }
+.erp .car-table th {
+  font-family: Tahoma, Verdana, sans-serif;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  color: #14315f;
+  background: linear-gradient(to bottom, #eaf1fb 0%, #cfdef2 100%);
+  border-right: 1px solid #b9cbe6;
+  border-bottom: 1px solid #a9c0e0;
+  padding: 0.4rem 0.6rem;
+}
+.erp .car-table td { font-size: 11.5px; padding: 0.35rem 0.6rem; border-bottom: 1px solid #e6edf6; }
+.erp .car-table tbody tr:nth-child(even) { background: #f4f8fd; }
+.erp .car-table tbody tr:hover { background: #dcebff; }
+.erp .car-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #2a5db0; }
+
+/* Keep the iconic yellow plate badge, just square it slightly for the era. */
+.erp .plate-tag { border-radius: 2px; }
+
+/* ── TopBar → enterprise tab strip ──────────────────────────────────────── */
+.erp .erp-topbar {
+  background: linear-gradient(to bottom, #ffffff 0%, #eaf1fb 100%);
+  border-bottom: 2px solid #2f5a9c;
+}
+.erp .erp-topbar-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 8px 16px 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.erp .erp-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  color: #14315f;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.erp .erp-brand-bar { width: 5px; height: 18px; background: #2a5db0; border-radius: 1px; }
+.erp .erp-nav { display: flex; align-items: flex-end; gap: 3px; flex: 1; }
+.erp .erp-navtab {
+  display: inline-block;
+  padding: 6px 15px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: none;
+  background: linear-gradient(to bottom, #6f9bd6 0%, #4a7ec2 50%, #3a6cb0 100%);
+  border: 1px solid #2f5a9c;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  position: relative;
+  top: 2px;
+}
+.erp .erp-navtab:hover { filter: brightness(1.06); }
+.erp .erp-navtab--active {
+  color: #4a4327;
+  background: linear-gradient(to bottom, #fffef4 0%, #fbf6d6 60%, #f3edc2 100%);
+  border-color: #cabf86;
+  box-shadow: inset 0 1px 0 #ffffff;
+  padding-top: 8px;
+  z-index: 2;
+}
+.erp .erp-navtab--disabled {
+  color: #e6eefb;
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: linear-gradient(to bottom, #9db9de, #7e9fce);
+}
+.erp .erp-addbtn { margin-bottom: 6px; white-space: nowrap; }
+
+/* The page <main> sits on the light desktop; give content a touch of air. */
+.erp main { color: var(--fg); }

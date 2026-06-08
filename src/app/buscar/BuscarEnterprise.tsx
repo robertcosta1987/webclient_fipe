@@ -24,14 +24,6 @@ type Props = {
   onRefresh: () => void;
 };
 
-const TABS = [
-  { href: "/carros-ativos", label: "Carros Ativos" },
-  { href: "/buscar", label: "Buscar", active: true },
-  { href: "/precos", label: "Preços" },
-  { href: "/historico-kbb", label: "Histórico KBB" },
-  { href: "/checktudo", label: "CheckTudo" },
-];
-
 const LINKS = [
   { href: "/carros-ativos", label: "Carros Ativos" },
   { href: "/precos", label: "Preços / KBB" },
@@ -50,17 +42,6 @@ export function BuscarEnterprise(p: Props) {
 
   return (
     <div className="erp-app">
-      {/* ── Tabs ─────────────────────────────────────────────── */}
-      <nav className="erp-tabs">
-        {TABS.map((t) =>
-          t.active ? (
-            <span key={t.href} className="erp-tab erp-tab--active">{t.label}</span>
-          ) : (
-            <a key={t.href} href={t.href} className="erp-tab">{t.label}</a>
-          ),
-        )}
-      </nav>
-
       <form onSubmit={p.onSearch} className="erp-window">
         {/* ── Toolbar ────────────────────────────────────────── */}
         <div className="erp-toolbar">
