@@ -309,7 +309,16 @@ function RecallAffectedField({ afetado, motivo }: { afetado: string | null; moti
 
 // Styled hover popover, portal'd to <body> with fixed positioning so it is
 // never clipped by an `overflow-hidden` ancestor (e.g. the history card).
-function HoverInfo({ content, children, width = 320 }: { content: React.ReactNode; children: React.ReactNode; width?: number }) {
+export function HoverInfo({
+  content, children, width = 320, focusable = true,
+}: {
+  content: React.ReactNode;
+  children: React.ReactNode;
+  width?: number;
+  /** Set false when nested inside a <button> (a focusable span would be
+   *  invalid interactive content); hover still works. */
+  focusable?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -321,15 +330,15 @@ function HoverInfo({ content, children, width = 320 }: { content: React.ReactNod
   }, [width]);
   const hide = useCallback(() => setPos(null), []);
 
+  const focusProps = focusable ? { tabIndex: 0, onFocus: show, onBlur: hide } : {};
+
   return (
     <span
       ref={ref}
       className="relative inline-block"
-      tabIndex={0}
       onMouseEnter={show}
       onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
+      {...focusProps}
     >
       {children}
       {pos &&

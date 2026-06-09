@@ -9,7 +9,7 @@ import { useState } from "react";
 import type { ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
 import type { ChecktudoLookupResult } from "@/app/actions/checktudo";
 import { Plate } from "@/components/Plate";
-import { ChecktudoReport, parecerLabel } from "./CheckTudoClient";
+import { ChecktudoReport, parecerLabel, HoverInfo } from "./CheckTudoClient";
 
 type OkResult = Extract<ChecktudoLookupResult, { ok: true }>;
 
@@ -81,23 +81,34 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
         </div>
 
         {row.recall_afetado === "sim" && (
-          <span
-            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
-            style={{ color: "#fff", background: "var(--danger)" }}
-            title={row.recall_motivo ?? "Chassi dentro de faixa de recall afetada"}
-          >
-            RECALL
-          </span>
+          <HoverInfo content={row.recall_motivo?.trim() || "Chassi dentro de uma faixa de recall afetada."} focusable={false}>
+            <span
+              className="cursor-help inline-block text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+              style={{ color: "#fff", background: "var(--danger)" }}
+            >
+              RECALL
+            </span>
+          </HoverInfo>
         )}
 
         {row.parecer_veredito && (
-          <span
-            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
-            style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
-            title={row.parecer_motivo ?? "Parecer de Compra"}
-          >
-            {parecer.label}
-          </span>
+          row.parecer_motivo?.trim() ? (
+            <HoverInfo content={row.parecer_motivo} focusable={false}>
+              <span
+                className="cursor-help inline-block text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+                style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
+              >
+                {parecer.label}
+              </span>
+            </HoverInfo>
+          ) : (
+            <span
+              className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+              style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
+            >
+              {parecer.label}
+            </span>
+          )
         )}
 
         <div className="text-right">
@@ -110,6 +121,31 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
 
       {open && (
         <div className="border-t border-[var(--border)] p-4 space-y-4">
+          {/* Full RECALL + buy-recommendation descriptions, shown inline once
+              expanded — no hover needed here. */}
+          {(row.recall_afetado === "sim" || row.parecer_veredito) && (
+            <div className="space-y-3">
+              {row.recall_afetado === "sim" && (
+                <div className="surface p-3" style={{ borderColor: "var(--danger)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded" style={{ color: "#fff", background: "var(--danger)" }}>RECALL</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Chassi afetado</span>
+                  </div>
+                  <p className="text-sm text-[var(--fg)] mt-2">{row.recall_motivo?.trim() || "Chassi dentro de uma faixa de recall afetada."}</p>
+                </div>
+              )}
+              {row.parecer_veredito && (
+                <div className="surface p-3" style={{ background: parecer.bg, borderColor: parecer.color }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded" style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}>{parecer.label}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Parecer de Compra</span>
+                  </div>
+                  {row.parecer_motivo?.trim() && <p className="text-sm text-[var(--fg)] mt-2">{row.parecer_motivo}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
               <Cell label="Produto" value={`${row.product_name ?? row.product_code} (${row.product_code})`} />
