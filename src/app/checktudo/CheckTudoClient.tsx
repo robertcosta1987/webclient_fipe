@@ -166,7 +166,9 @@ export function ChecktudoReport({
         return <DataSection key={sid} title={SECTION_LABELS[sid]} rows={rows ?? []} extra={extra} />;
       })}
 
-      {priceBlocks.length > 0 && <PriceSection blocks={priceBlocks} consultedAt={r.consultedAt} />}
+      {priceBlocks.length > 0 && (
+        <PriceSection blocks={priceBlocks} consultedAt={r.consultedAt} history={extractFipeHistory(r.data)} />
+      )}
 
       <details className="surface p-4 group">
         <summary className="cursor-pointer text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)] group-open:text-[var(--fg)]">
@@ -235,7 +237,7 @@ function RecallAffectedField({ afetado, motivo }: { afetado: string | null; moti
       <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
       <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>
         {tip ? (
-          <HoverInfo text={tip}>
+          <HoverInfo content={tip}>
             <span className="cursor-help underline decoration-dotted underline-offset-4">{label}</span>
           </HoverInfo>
         ) : (
@@ -248,14 +250,16 @@ function RecallAffectedField({ afetado, motivo }: { afetado: string | null; moti
 
 // Styled hover popover, portal'd to <body> with fixed positioning so it is
 // never clipped by an `overflow-hidden` ancestor (e.g. the history card).
-function HoverInfo({ text, children }: { text: string; children: React.ReactNode }) {
+function HoverInfo({ content, children, width = 320 }: { content: React.ReactNode; children: React.ReactNode; width?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   const show = useCallback(() => {
     const r = ref.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 6, left: r.left });
-  }, []);
+    if (!r) return;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 12));
+    setPos({ top: r.bottom + 6, left });
+  }, [width]);
   const hide = useCallback(() => setPos(null), []);
 
   return (
@@ -273,12 +277,12 @@ function HoverInfo({ text, children }: { text: string; children: React.ReactNode
         createPortal(
           <span
             role="tooltip"
-            style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, maxWidth: 320 }}
+            style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width }}
             className="block px-3 py-2 rounded-md text-[11.5px] font-normal normal-case leading-snug
                        bg-[var(--bg-elev-2)] text-[var(--fg)] border border-[var(--border)]
                        shadow-[0_8px_28px_-8px_rgba(0,0,0,0.45)]"
           >
-            {text}
+            {content}
           </span>,
           document.body,
         )}
@@ -286,16 +290,106 @@ function HoverInfo({ text, children }: { text: string; children: React.ReactNode
   );
 }
 
-function PriceSection({ blocks, consultedAt }: { blocks: PriceBlock[]; consultedAt: string }) {
+function PriceSection({ blocks, consultedAt, history }: { blocks: PriceBlock[]; consultedAt: string; history: PricePoint[] }) {
   return (
     <section className="space-y-3">
-      <h2 className="font-display uppercase tracking-[0.16em] text-sm text-[var(--accent)]">FIPE / Preço</h2>
+      <h2 className="font-display uppercase tracking-[0.16em] text-sm text-[var(--accent)]">
+        {history.length >= 2 ? (
+          <HoverInfo content={<PriceChart points={history} />} width={360}>
+            <span className="cursor-help underline decoration-dotted underline-offset-4">FIPE / Preço</span>
+            <span className="ml-1.5 text-[10px] align-middle text-[var(--fg-muted)]">📈 12 meses</span>
+          </HoverInfo>
+        ) : (
+          "FIPE / Preço"
+        )}
+      </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {blocks.flatMap((b, bi) =>
           b.items.map((it, i) => <PriceCard key={`${bi}-${i}`} item={it} consultedAt={consultedAt} />),
         )}
       </div>
     </section>
+  );
+}
+
+type PricePoint = { mes: number; ano: number; valor: number };
+
+/** Find the first `historicoPreco` array anywhere in the product data. */
+function findHistorico(node: unknown): unknown[] | null {
+  if (Array.isArray(node)) {
+    for (const el of node) { const r = findHistorico(el); if (r) return r; }
+    return null;
+  }
+  if (!node || typeof node !== "object") return null;
+  const obj = node as Record<string, unknown>;
+  const direct = obj["historicoPreco"] ?? obj["historicopreco"];
+  if (Array.isArray(direct) && direct.length) return direct;
+  for (const v of Object.values(obj)) { const r = findHistorico(v); if (r) return r; }
+  return null;
+}
+
+/** Last 12 actual (non-prediction) monthly FIPE values, chronological. */
+function extractFipeHistory(data: unknown): PricePoint[] {
+  const arr = findHistorico(data);
+  if (!arr) return [];
+  const pts: PricePoint[] = [];
+  for (const e of arr) {
+    if (!e || typeof e !== "object") continue;
+    const o = e as Record<string, unknown>;
+    if (o.predicao === true) continue; // exclude future predictions
+    const mes = Number(o.mes), ano = Number(o.ano), valor = Number(o.valor);
+    if (!Number.isFinite(mes) || !Number.isFinite(ano) || !Number.isFinite(valor) || valor <= 0) continue;
+    pts.push({ mes, ano, valor });
+  }
+  pts.sort((a, b) => a.ano * 12 + a.mes - (b.ano * 12 + b.mes));
+  return pts.slice(-12);
+}
+
+const BRL0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const monthLabel = (p: PricePoint) => `${String(p.mes).padStart(2, "0")}/${String(p.ano).slice(2)}`;
+
+/** Inline SVG line/area chart of the 12-month FIPE price variation. */
+function PriceChart({ points }: { points: PricePoint[] }) {
+  const W = 340, H = 132, PADL = 10, PADR = 10, PADT = 6, PADB = 18;
+  const vals = points.map((p) => p.valor);
+  const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+  const iw = W - PADL - PADR, ih = H - PADT - PADB;
+  const X = (i: number) => PADL + (points.length <= 1 ? iw / 2 : (i / (points.length - 1)) * iw);
+  const Y = (v: number) => PADT + ih - ((v - min) / range) * ih;
+  const line = points.map((p, i) => `${X(i).toFixed(1)},${Y(p.valor).toFixed(1)}`).join(" ");
+  const area = `${X(0).toFixed(1)},${(PADT + ih).toFixed(1)} ${line} ${X(points.length - 1).toFixed(1)},${(PADT + ih).toFixed(1)}`;
+  const first = points[0], last = points[points.length - 1];
+  const delta = last.valor - first.valor;
+  const pct = first.valor ? (delta / first.valor) * 100 : 0;
+  const up = delta >= 0;
+  const accent = "var(--accent)";
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--fg-muted)]">
+          Variação FIPE · {points.length} {points.length === 1 ? "mês" : "meses"}
+        </span>
+        <span className="text-[11px] font-semibold" style={{ color: up ? "var(--success)" : "var(--danger)" }}>
+          {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1).replace(".", ",")}%
+        </span>
+      </div>
+      <div className="text-[13px] font-semibold text-[var(--fg-strong)] mt-0.5">
+        {BRL0.format(last.valor)}
+        <span className="text-[10px] font-normal text-[var(--fg-muted)]"> · atual ({monthLabel(last)})</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full mt-1" preserveAspectRatio="none" style={{ height: 110 }}>
+        <polygon points={area} fill={accent} opacity="0.12" />
+        <polyline points={line} fill="none" stroke={accent} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+        {points.map((p, i) => (
+          <circle key={i} cx={X(i)} cy={Y(p.valor)} r={i === points.length - 1 ? 2.8 : 1.3} fill={accent} />
+        ))}
+        <text x={PADL} y={Y(max) - 2} fontSize="7" fill="var(--fg-muted)">{BRL0.format(max)}</text>
+        <text x={PADL} y={Y(min) + 7} fontSize="7" fill="var(--fg-muted)">{BRL0.format(min)}</text>
+        <text x={X(0)} y={H - 5} fontSize="7" fill="var(--fg-muted)" textAnchor="start">{monthLabel(first)}</text>
+        <text x={X(points.length - 1)} y={H - 5} fontSize="7" fill="var(--fg-muted)" textAnchor="end">{monthLabel(last)}</text>
+      </svg>
+    </div>
   );
 }
 
