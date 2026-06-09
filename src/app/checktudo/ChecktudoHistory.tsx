@@ -6,10 +6,33 @@
 // /historico-kbb list.
 
 import { useState } from "react";
-import Link from "next/link";
 import type { ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
+import type { ChecktudoLookupResult } from "@/app/actions/checktudo";
 import { Plate } from "@/components/Plate";
-import { recallAfetadoLabel } from "./CheckTudoClient";
+import { recallAfetadoLabel, ChecktudoReport } from "./CheckTudoClient";
+
+type OkResult = Extract<ChecktudoLookupResult, { ok: true }>;
+
+/** Rebuild a full report shape from a stored consult row (no re-consult). */
+function rowToResult(row: ChecktudoConsultaRow): OkResult {
+  let data: Record<string, unknown> = {};
+  try { data = JSON.parse(row.payload); } catch { data = {}; }
+  return {
+    ok: true,
+    placa: row.placa,
+    product: { code: row.product_code, name: row.product_name ?? `Produto ${row.product_code}` },
+    data,
+    queryId: row.query_id,
+    upstreamLatencyMs: row.upstream_latency_ms,
+    raw: data,
+    fromCache: false,
+    cachedAt: null,
+    consultedAt: row.consulted_at,
+    recallAfetado: row.recall_afetado,
+    recallMotivo: row.recall_motivo,
+    consultaId: row.id,
+  };
+}
 
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -32,6 +55,7 @@ export function ChecktudoHistory({ rows }: { rows: ChecktudoConsultaRow[] }) {
 
 function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
   const [open, setOpen] = useState(false);
+  const [full, setFull] = useState(false);
   const modelo = [row.brand, row.model].filter(Boolean).join(" ") || "Modelo não identificado";
   const when = new Date(row.consulted_at);
   const recall = recallAfetadoLabel(row.recall_afetado);
@@ -58,9 +82,9 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
           <span
             className="text-[10px] uppercase tracking-[0.1em] font-bold px-2 py-1 rounded whitespace-nowrap"
             style={{ color: recall.color, border: `1px solid ${recall.color}` }}
-            title="Veículo Listado Afetado? (recall)"
+            title={row.recall_motivo ?? "Chassi com Recall?"}
           >
-            Afetado: {recall.label}
+            Chassi com Recall?: {recall.label}
           </span>
         )}
 
@@ -73,36 +97,38 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
       </button>
 
       {open && (
-        <div className="border-t border-[var(--border)] p-4 grid gap-4 sm:grid-cols-[1fr_auto]">
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-            <Cell label="Produto" value={`${row.product_name ?? row.product_code} (${row.product_code})`} />
-            <Cell label="Chassi" value={row.chassi ?? "—"} mono />
-            <Cell label="Latência upstream" value={row.upstream_latency_ms !== null ? `${row.upstream_latency_ms} ms` : "—"} mono />
-            <Cell label="Query ID" value={row.query_id ?? "—"} mono />
-            <Cell label="ID da consulta" value={row.id.slice(0, 8)} mono />
-            <div>
-              <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Veículo Listado Afetado?</dt>
-              <dd className="mt-0.5 font-semibold" style={{ color: recall.color }} title={row.recall_motivo ?? undefined}>
-                {recall.label}
-              </dd>
+        <div className="border-t border-[var(--border)] p-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+              <Cell label="Produto" value={`${row.product_name ?? row.product_code} (${row.product_code})`} />
+              <Cell label="Chassi" value={row.chassi ?? "—"} mono />
+              <Cell label="Latência upstream" value={row.upstream_latency_ms !== null ? `${row.upstream_latency_ms} ms` : "—"} mono />
+              <Cell label="Query ID" value={row.query_id ?? "—"} mono />
+              <Cell label="ID da consulta" value={row.id.slice(0, 8)} mono />
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
+                <dd className="mt-0.5 font-semibold" style={{ color: recall.color }} title={row.recall_motivo ?? undefined}>
+                  {recall.label}
+                </dd>
+              </div>
+            </dl>
+            <div className="flex sm:flex-col gap-2 sm:items-end">
+              <button
+                type="button"
+                onClick={() => setFull((s) => !s)}
+                className="btn-primary text-xs whitespace-nowrap"
+                aria-expanded={full}
+              >
+                {full ? "Ocultar resultado" : "Ver resultado completo →"}
+              </button>
             </div>
-          </dl>
-          <div className="flex sm:flex-col gap-2 sm:items-end">
-            <Link
-              href={`/checktudo?placa=${encodeURIComponent(row.placa)}&product=${row.product_code}`}
-              className="btn-primary text-xs whitespace-nowrap"
-            >
-              Ver resultado completo →
-            </Link>
-            <details className="text-xs">
-              <summary className="cursor-pointer text-[var(--fg-muted)] uppercase tracking-[0.16em] text-[10px]">
-                Ler JSON bruto
-              </summary>
-              <pre className="mt-2 max-h-72 max-w-md overflow-auto bg-[var(--bg)] p-3 text-[10px] leading-snug text-[var(--fg)] font-mono">
-{prettyJson(row.payload)}
-              </pre>
-            </details>
           </div>
+
+          {full && (
+            <div className="pt-2 border-t border-[var(--border)]">
+              <ChecktudoReport r={rowToResult(row)} pending={false} onForceRefresh={() => {}} />
+            </div>
+          )}
         </div>
       )}
     </li>
@@ -116,8 +142,4 @@ function Cell({ label, value, mono }: { label: string; value: string; mono?: boo
       <dd className={`text-[var(--fg-strong)] mt-0.5 break-all ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>
   );
-}
-
-function prettyJson(raw: string): string {
-  try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
 }

@@ -128,7 +128,7 @@ export function CheckTudoClient() {
 // Report
 // ───────────────────────────────────────────────────────────────────────────
 
-function ChecktudoReport({
+export function ChecktudoReport({
   r,
   pending,
   onForceRefresh,
@@ -230,7 +230,7 @@ function RecallAffectedField({ afetado }: { afetado: string | null }) {
   const { label, color } = recallAfetadoLabel(afetado);
   return (
     <div>
-      <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Veículo Listado Afetado?</dt>
+      <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
       <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>{label}</dd>
     </div>
   );
