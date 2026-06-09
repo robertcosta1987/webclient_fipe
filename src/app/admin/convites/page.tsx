@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ConvitesPage() {
   const session = await getSession();
-  if (!session || session.role !== "admin") redirect("/carros-ativos");
+  if (!session || session.role !== "admin") redirect("/precos");
 
   const invites = await listInvites(200);
   const view = invites.map((i) => ({

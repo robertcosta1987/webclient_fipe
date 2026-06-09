@@ -37,16 +37,18 @@ export type CachedHit = {
   payload: MolicarPayload;
 };
 
-/** Latest consultation for `placa` if it's newer than 90 days. */
-export async function findFreshByPlaca(placa: string): Promise<CachedHit | null> {
+/** Latest consultation for `placa` (this owner) if it's newer than 90 days. */
+export async function findFreshByPlaca(placa: string, ownerId: string): Promise<CachedHit | null> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("ttl", sql.Int, CACHE_TTL_DAYS)
     .query(`
       SELECT TOP 1 ${SELECT_COLS}
       FROM kbb_consultas
       WHERE placa = @placa
+        AND owner_id = @owner
         AND consulted_at >= DATEADD(day, -@ttl, SYSUTCDATETIME())
       ORDER BY consulted_at DESC
     `);
@@ -55,25 +57,28 @@ export async function findFreshByPlaca(placa: string): Promise<CachedHit | null>
   return { row, payload: safeParse(row.payload) };
 }
 
-/** Get one row by id (history detail view). */
-export async function getById(id: string): Promise<(KbbConsultaRow & { parsed: MolicarPayload }) | null> {
+/** Get one row by id (history detail view) — scoped to the owner. */
+export async function getById(id: string, ownerId: string): Promise<(KbbConsultaRow & { parsed: MolicarPayload }) | null> {
   const p = await getPool();
   const r = await p.request()
     .input("id", sql.UniqueIdentifier, id)
-    .query(`SELECT TOP 1 ${SELECT_COLS} FROM kbb_consultas WHERE id = @id`);
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`SELECT TOP 1 ${SELECT_COLS} FROM kbb_consultas WHERE id = @id AND owner_id = @owner`);
   const row = r.recordset[0] as KbbConsultaRow | undefined;
   if (!row) return null;
   return { ...row, parsed: safeParse(row.payload) };
 }
 
-/** Most recent N consultations, newest first. */
-export async function listRecent(limit = 100): Promise<KbbConsultaRow[]> {
+/** Most recent N consultations for this owner, newest first. */
+export async function listRecent(ownerId: string, limit = 100): Promise<KbbConsultaRow[]> {
   const p = await getPool();
   const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("lim", sql.Int, limit)
     .query(`
       SELECT TOP (@lim) ${SELECT_COLS}
       FROM kbb_consultas
+      WHERE owner_id = @owner
       ORDER BY consulted_at DESC
     `);
   return r.recordset as KbbConsultaRow[];
@@ -84,10 +89,11 @@ export type InsertInput = {
   payload: MolicarPayload;
   sourceId: string;
   upstreamLatencyMs: number | null;
+  ownerId: string;
 };
 
 export async function insert(input: InsertInput): Promise<{ id: string }> {
-  const { placa, payload, sourceId, upstreamLatencyMs } = input;
+  const { placa, payload, sourceId, upstreamLatencyMs, ownerId } = input;
   const v = payload.VehicleData ?? {};
   const d = payload.Decoder ?? {};
   const k = payload.KBBPricing ?? {};
@@ -96,6 +102,7 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("brand", sql.NVarChar(60), trunc(v.Brand, 60))
     .input("model", sql.NVarChar(120), trunc(v.Model, 120))
     .input("version", sql.NVarChar(240), trunc(v.Version, 240))
@@ -107,13 +114,13 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
     .input("payload", sql.NVarChar(sql.MAX), JSON.stringify(payload))
     .query(`
       INSERT INTO kbb_consultas (
-        placa, brand, model, version, model_year,
+        placa, owner_id, brand, model, version, model_year,
         fair_price_used_dealer, molicar_price,
         source_id, upstream_latency_ms, payload
       )
       OUTPUT inserted.id
       VALUES (
-        @placa, @brand, @model, @version, @model_year,
+        @placa, @owner, @brand, @model, @version, @model_year,
         @fair_price_used_dealer, @molicar_price,
         @source_id, @upstream_latency_ms, @payload
       );

@@ -18,6 +18,7 @@ import type { EditableCol } from "@/lib/db/carros";
 import { fetchVehicleByPlate } from "@/lib/platform/client";
 import { type VehiclePayload, type FipeOption } from "@/lib/platform/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
+import { requireUserId } from "@/lib/auth/server";
 
 export type LookupResult =
   | {
@@ -42,11 +43,12 @@ export async function lookupPlaca(rawPlaca: string): Promise<LookupResult> {
     return { ok: false, error: "Placa inválida. Use 7 caracteres (ex.: ABC1D23 ou ABC1234)." };
   }
 
+  const ownerId = await requireUserId();
   // Fire both calls concurrently — the duplicate check is independent of
   // the platform response.
   const [platform, existing] = await Promise.all([
     fetchVehicleByPlate(placa),
-    carros.getByPlaca(placa).catch(() => null),
+    carros.getByPlaca(placa, ownerId).catch(() => null),
   ]);
 
   if (!platform.ok) {
@@ -86,7 +88,8 @@ export async function insertCarro(rawPlaca: string, payload: Partial<VehiclePayl
   if (!isValidPlaca(placa)) return { ok: false, error: "Placa inválida." };
 
   try {
-    const { id } = await carros.insertFromPayload(placa, payload);
+    const ownerId = await requireUserId();
+    const { id } = await carros.insertFromPayload(placa, payload, ownerId);
     revalidatePath("/carros-ativos");
     return { ok: true, id };
   } catch (e) {
@@ -103,7 +106,8 @@ export type UpdateResult = { ok: true } | { ok: false; error: string };
 export async function updateCarro(id: string, patch: Partial<Record<EditableCol, string | number | null>>): Promise<UpdateResult> {
   if (!id) return { ok: false, error: "ID ausente." };
   try {
-    await carros.updateById(id, patch);
+    const ownerId = await requireUserId();
+    await carros.updateById(id, patch, ownerId);
     revalidatePath("/carros-ativos");
     return { ok: true };
   } catch (e) {
@@ -114,7 +118,8 @@ export async function updateCarro(id: string, patch: Partial<Record<EditableCol,
 export async function deleteCarro(id: string): Promise<UpdateResult> {
   if (!id) return { ok: false, error: "ID ausente." };
   try {
-    await carros.removeById(id);
+    const ownerId = await requireUserId();
+    await carros.removeById(id, ownerId);
     revalidatePath("/carros-ativos");
     return { ok: true };
   } catch (e) {
@@ -123,5 +128,6 @@ export async function deleteCarro(id: string): Promise<UpdateResult> {
 }
 
 export async function searchCarros(q: string, scope: carros.SearchScope): Promise<carros.Carro[]> {
-  return carros.search(q, scope);
+  const ownerId = await requireUserId();
+  return carros.search(q, scope, ownerId);
 }

@@ -185,6 +185,8 @@
   padding: 6px 15px;
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.1;
   color: #ffffff;
   text-decoration: none;
   background: linear-gradient(to bottom, #6f9bd6 0%, #4a7ec2 50%, #3a6cb0 100%);

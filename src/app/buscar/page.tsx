@@ -1,5 +1,6 @@
 import { BuscarClient } from "./BuscarClient";
 import { list } from "@/lib/db/carros";
+import { requireUserId } from "@/lib/auth/server";
 import "./erp.css";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ const ENTERPRISE_THEME = true;
 export default async function BuscarPage() {
   // Seed the page with the latest 50 — so opening /buscar with an empty
   // query already shows something useful instead of a blank state.
-  const initial = await list();
+  const ownerId = await requireUserId();
+  const initial = await list(ownerId);
   return (
     <section className={ENTERPRISE_THEME ? "erp-skin" : undefined}>
       {/* In enterprise mode the tab strip replaces this header. */}

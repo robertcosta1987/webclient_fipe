@@ -16,6 +16,7 @@ import {
 } from "@/lib/checktudo/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as ct from "@/lib/db/checktudoConsultas";
+import { requireUserId } from "@/lib/auth/server";
 
 export type ChecktudoLookupResult =
   | {
@@ -30,6 +31,8 @@ export type ChecktudoLookupResult =
       fromCache: boolean;
       /** ISO timestamp the cached row was originally consulted at. */
       cachedAt: string | null;
+      /** ISO timestamp this consult was made (cache date, or now for fresh). */
+      consultedAt: string;
       /** Row id when this lookup ended up persisted. */
       consultaId: string | null;
     }
@@ -70,11 +73,12 @@ export async function lookupPlacaChecktudo(
   if (!isValidProduct(productCode)) {
     return { ok: false, error: ERROR_MESSAGES.invalid_product };
   }
+  const ownerId = await requireUserId();
 
   // 1. Cache check — most recent row for placa+product if <= 90 days old.
   if (!opts.forceRefresh) {
     try {
-      const hit = await ct.findFreshByPlaca(placa, productCode);
+      const hit = await ct.findFreshByPlaca(placa, productCode, ownerId);
       if (hit) {
         return {
           ok: true,
@@ -86,6 +90,7 @@ export async function lookupPlacaChecktudo(
           raw: { ok: true, product: { code: productCode, name: hit.row.product_name }, data: hit.data },
           fromCache: true,
           cachedAt: hit.row.consulted_at,
+          consultedAt: hit.row.consulted_at,
           consultaId: hit.row.id,
         };
       }
@@ -116,6 +121,7 @@ export async function lookupPlacaChecktudo(
       data: result.data,
       queryId: result.queryId,
       upstreamLatencyMs: result.upstreamLatencyMs,
+      ownerId,
     });
     consultaId = ins.id;
   } catch {
@@ -132,6 +138,7 @@ export async function lookupPlacaChecktudo(
     raw: result.raw,
     fromCache: false,
     cachedAt: null,
+    consultedAt: new Date().toISOString(),
     consultaId,
   };
 }

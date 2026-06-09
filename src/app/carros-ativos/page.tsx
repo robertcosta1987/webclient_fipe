@@ -1,5 +1,6 @@
 import { CarrosTable } from "@/components/CarrosTable";
 import { list } from "@/lib/db/carros";
+import { requireUserId } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic"; // server-rendered; no static cache
 
@@ -7,7 +8,8 @@ type SearchParams = Promise<{ novo?: string; placa?: string }>;
 
 export default async function CarrosAtivosPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const rows = await list();
+  const ownerId = await requireUserId();
+  const rows = await list(ownerId);
   const highlight = sp.novo || sp.placa;
   return (
     <section>

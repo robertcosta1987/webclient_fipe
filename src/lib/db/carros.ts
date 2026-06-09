@@ -64,27 +64,30 @@ export const EDITABLE_COLS = [
 ] as const;
 export type EditableCol = (typeof EDITABLE_COLS)[number];
 
-export async function list(limit = 50): Promise<Carro[]> {
+export async function list(ownerId: string, limit = 50): Promise<Carro[]> {
   const p = await getPool();
   const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("lim", sql.Int, limit)
-    .query(`SELECT TOP (@lim) ${SELECT_COLS} FROM carros_ativos ORDER BY criado_em DESC`);
+    .query(`SELECT TOP (@lim) ${SELECT_COLS} FROM carros_ativos WHERE owner_id = @owner ORDER BY criado_em DESC`);
   return r.recordset as Carro[];
 }
 
-export async function getByPlaca(placa: string): Promise<Carro | null> {
+export async function getByPlaca(placa: string, ownerId: string): Promise<Carro | null> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
-    .query(`SELECT TOP 1 ${SELECT_COLS} FROM carros_ativos WHERE placa = @placa`);
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`SELECT TOP 1 ${SELECT_COLS} FROM carros_ativos WHERE placa = @placa AND owner_id = @owner`);
   return (r.recordset[0] as Carro) ?? null;
 }
 
-export async function getById(id: string): Promise<Carro | null> {
+export async function getById(id: string, ownerId: string): Promise<Carro | null> {
   const p = await getPool();
   const r = await p.request()
     .input("id", sql.UniqueIdentifier, id)
-    .query(`SELECT TOP 1 ${SELECT_COLS} FROM carros_ativos WHERE id = @id`);
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`SELECT TOP 1 ${SELECT_COLS} FROM carros_ativos WHERE id = @id AND owner_id = @owner`);
   return (r.recordset[0] as Carro) ?? null;
 }
 
@@ -98,29 +101,30 @@ const TEXT_SCOPES: SearchScope[] = [
   "combustivel", "codigo_fipe",
 ];
 
-export async function search(q: string, scope: SearchScope, limit = 50): Promise<Carro[]> {
+export async function search(q: string, scope: SearchScope, ownerId: string, limit = 50): Promise<Carro[]> {
   const p = await getPool();
-  const req = p.request().input("lim", sql.Int, limit);
-  let where = "";
+  const req = p.request().input("lim", sql.Int, limit).input("owner", sql.UniqueIdentifier, ownerId);
+  // Owner filter is always applied; the text predicate is appended to it.
+  let cond = "owner_id = @owner";
 
   if (!q.trim()) {
-    where = "";
+    // owner-only
   } else if (scope === "ano_modelo") {
     const n = Number(q);
     if (!Number.isFinite(n)) return [];
     req.input("yr", sql.Int, n);
-    where = "WHERE ano_modelo = @yr";
+    cond += " AND ano_modelo = @yr";
   } else if (scope === "qualquer") {
     req.input("q", sql.NVarChar(200), `%${q}%`);
     const cols = TEXT_SCOPES.filter((s) => s !== "qualquer");
-    where = `WHERE ${cols.map((c) => `${c} LIKE @q`).join(" OR ")}`;
+    cond += ` AND (${cols.map((c) => `${c} LIKE @q`).join(" OR ")})`;
   } else {
     req.input("q", sql.NVarChar(200), `%${q}%`);
-    where = `WHERE ${scope} LIKE @q`;
+    cond += ` AND ${scope} LIKE @q`;
   }
 
   const r = await req.query(
-    `SELECT TOP (@lim) ${SELECT_COLS} FROM carros_ativos ${where} ORDER BY criado_em DESC`,
+    `SELECT TOP (@lim) ${SELECT_COLS} FROM carros_ativos WHERE ${cond} ORDER BY criado_em DESC`,
   );
   return r.recordset as Carro[];
 }
@@ -129,10 +133,12 @@ export async function search(q: string, scope: SearchScope, limit = 50): Promise
 export async function insertFromPayload(
   placa: string,
   v: Partial<VehiclePayload>,
+  ownerId: string,
 ): Promise<{ id: string }> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("chassi", sql.NVarChar(20), nz(v.chassi))
     .input("modelo", sql.NVarChar(200), nz(v.modelo))
     .input("ano_fabricacao", sql.Int, intOrNull(v.anoFabricacao))
@@ -159,7 +165,7 @@ export async function insertFromPayload(
     .input("valor_fipe", sql.Decimal(12, 2), parseValorFipe(v.valor ?? null))
     .query(`
       INSERT INTO carros_ativos (
-        placa, chassi, modelo, ano_fabricacao, ano_modelo, cor, combustivel,
+        placa, owner_id, chassi, modelo, ano_fabricacao, ano_modelo, cor, combustivel,
         uf, municipio, tipo_veiculo, motor, numero_caixa_cambio,
         numero_eixo_traseiro_diferencial, procedencia, situacao_chassi,
         capacidade_de_carga, potencia, numero_cilindradas,
@@ -168,7 +174,7 @@ export async function insertFromPayload(
       )
       OUTPUT inserted.id
       VALUES (
-        @placa, @chassi, @modelo, @ano_fabricacao, @ano_modelo, @cor, @combustivel,
+        @placa, @owner, @chassi, @modelo, @ano_fabricacao, @ano_modelo, @cor, @combustivel,
         @uf, @municipio, @tipo_veiculo, @motor, @numero_caixa_cambio,
         @numero_eixo_traseiro_diferencial, @procedencia, @situacao_chassi,
         @capacidade_de_carga, @potencia, @numero_cilindradas,
@@ -181,12 +187,12 @@ export async function insertFromPayload(
 
 /** Partial update by id. Only EDITABLE_COLS are accepted; everything else
  *  is silently dropped. Empty-string in patch means "set NULL". */
-export async function updateById(id: string, patch: Partial<Record<EditableCol, string | number | null>>): Promise<void> {
+export async function updateById(id: string, patch: Partial<Record<EditableCol, string | number | null>>, ownerId: string): Promise<void> {
   const keys = Object.keys(patch).filter((k): k is EditableCol => (EDITABLE_COLS as readonly string[]).includes(k));
   if (keys.length === 0) return;
 
   const p = await getPool();
-  const req = p.request().input("id", sql.UniqueIdentifier, id);
+  const req = p.request().input("id", sql.UniqueIdentifier, id).input("owner", sql.UniqueIdentifier, ownerId);
   const sets: string[] = [];
   for (const k of keys) {
     const v = patch[k];
@@ -200,14 +206,15 @@ export async function updateById(id: string, patch: Partial<Record<EditableCol, 
     }
     sets.push(`${k} = @${k}`);
   }
-  await req.query(`UPDATE carros_ativos SET ${sets.join(", ")} WHERE id = @id`);
+  await req.query(`UPDATE carros_ativos SET ${sets.join(", ")} WHERE id = @id AND owner_id = @owner`);
 }
 
-export async function removeById(id: string): Promise<void> {
+export async function removeById(id: string, ownerId: string): Promise<void> {
   const p = await getPool();
   await p.request()
     .input("id", sql.UniqueIdentifier, id)
-    .query("DELETE FROM carros_ativos WHERE id = @id");
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query("DELETE FROM carros_ativos WHERE id = @id AND owner_id = @owner");
 }
 
 // Helpers

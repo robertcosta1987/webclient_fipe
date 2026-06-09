@@ -10,6 +10,7 @@ import { fetchPricingByPlate } from "@/lib/pricing/client";
 import type { MolicarPayload } from "@/lib/pricing/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as kbb from "@/lib/db/kbbConsultas";
+import { requireUserId } from "@/lib/auth/server";
 
 export type PrecosLookupResult =
   | {
@@ -58,11 +59,12 @@ export async function lookupPlacaPrecos(
   if (!isValidPlaca(placa)) {
     return { ok: false, error: ERROR_MESSAGES.invalid_plate };
   }
+  const ownerId = await requireUserId();
 
   // 1. Cache check — return the most recent row if it's <= 90 days old.
   if (!opts.forceRefresh) {
     try {
-      const hit = await kbb.findFreshByPlaca(placa);
+      const hit = await kbb.findFreshByPlaca(placa, ownerId);
       if (hit) {
         return {
           ok: true,
@@ -99,6 +101,7 @@ export async function lookupPlacaPrecos(
       payload: result.payload,
       sourceId: result.sourceId,
       upstreamLatencyMs: result.upstreamLatencyMs,
+      ownerId,
     });
     consultaId = ins.id;
   } catch {

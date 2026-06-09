@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
   // Logged-in users shouldn't see the auth pages.
   if (session && isPublic(pathname)) {
     const url = req.nextUrl.clone();
-    url.pathname = "/carros-ativos";
+    url.pathname = "/precos";
     url.search = "";
     return NextResponse.redirect(url);
   }

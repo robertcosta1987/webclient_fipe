@@ -40,18 +40,20 @@ export type CachedHit = {
   data: ChecktudoData;
 };
 
-/** Latest consultation for (placa, productCode) if newer than 90 days. */
-export async function findFreshByPlaca(placa: string, productCode: number): Promise<CachedHit | null> {
+/** Latest consultation for (placa, productCode, owner) if newer than 90 days. */
+export async function findFreshByPlaca(placa: string, productCode: number, ownerId: string): Promise<CachedHit | null> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
     .input("product", sql.SmallInt, productCode)
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("ttl", sql.Int, CACHE_TTL_DAYS)
     .query(`
       SELECT TOP 1 ${SELECT_COLS}
       FROM checktudo_consultas
       WHERE placa = @placa
         AND product_code = @product
+        AND owner_id = @owner
         AND consulted_at >= DATEADD(day, -@ttl, SYSUTCDATETIME())
       ORDER BY consulted_at DESC
     `);
@@ -60,25 +62,28 @@ export async function findFreshByPlaca(placa: string, productCode: number): Prom
   return { row, data: safeParse(row.payload) };
 }
 
-/** Get one row by id (history detail view). */
-export async function getById(id: string): Promise<(ChecktudoConsultaRow & { parsed: ChecktudoData }) | null> {
+/** Get one row by id (history detail view) — scoped to the owner. */
+export async function getById(id: string, ownerId: string): Promise<(ChecktudoConsultaRow & { parsed: ChecktudoData }) | null> {
   const p = await getPool();
   const r = await p.request()
     .input("id", sql.UniqueIdentifier, id)
-    .query(`SELECT TOP 1 ${SELECT_COLS} FROM checktudo_consultas WHERE id = @id`);
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`SELECT TOP 1 ${SELECT_COLS} FROM checktudo_consultas WHERE id = @id AND owner_id = @owner`);
   const row = r.recordset[0] as ChecktudoConsultaRow | undefined;
   if (!row) return null;
   return { ...row, parsed: safeParse(row.payload) };
 }
 
-/** Most recent N consultations, newest first. */
-export async function listRecent(limit = 100): Promise<ChecktudoConsultaRow[]> {
+/** Most recent N consultations for this owner, newest first. */
+export async function listRecent(ownerId: string, limit = 100): Promise<ChecktudoConsultaRow[]> {
   const p = await getPool();
   const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("lim", sql.Int, limit)
     .query(`
       SELECT TOP (@lim) ${SELECT_COLS}
       FROM checktudo_consultas
+      WHERE owner_id = @owner
       ORDER BY consulted_at DESC
     `);
   return r.recordset as ChecktudoConsultaRow[];
@@ -91,15 +96,17 @@ export type InsertInput = {
   data: ChecktudoData;
   queryId: string | null;
   upstreamLatencyMs: number | null;
+  ownerId: string;
 };
 
 export async function insert(input: InsertInput): Promise<{ id: string }> {
-  const { placa, productCode, productName, data, queryId, upstreamLatencyMs } = input;
+  const { placa, productCode, productName, data, queryId, upstreamLatencyMs, ownerId } = input;
   const s = summarize(data);
 
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
+    .input("owner", sql.UniqueIdentifier, ownerId)
     .input("product_code", sql.SmallInt, productCode)
     .input("product_name", sql.NVarChar(60), trunc(productName, 60))
     .input("brand", sql.NVarChar(60), trunc(s.brand, 60))
@@ -111,12 +118,12 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
     .input("payload", sql.NVarChar(sql.MAX), JSON.stringify(data))
     .query(`
       INSERT INTO checktudo_consultas (
-        placa, product_code, product_name, brand, model, model_year, chassi,
+        placa, owner_id, product_code, product_name, brand, model, model_year, chassi,
         query_id, upstream_latency_ms, payload
       )
       OUTPUT inserted.id
       VALUES (
-        @placa, @product_code, @product_name, @brand, @model, @model_year, @chassi,
+        @placa, @owner, @product_code, @product_name, @brand, @model, @model_year, @chassi,
         @query_id, @upstream_latency_ms, @payload
       );
     `);

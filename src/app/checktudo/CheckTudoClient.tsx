@@ -14,6 +14,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { lookupPlacaChecktudo, type ChecktudoLookupResult } from "@/app/actions/checktudo";
+import { analyzeRecallAffected, type RecallVerdict } from "@/app/actions/recall";
 import {
   CHECKTUDO_PRODUCTS,
   CHECKTUDO_DEFAULT_PRODUCT,
@@ -139,6 +140,12 @@ function ChecktudoReport({
   const { scalars, priceBlocks, opcionais } = collect(r.data);
   const sections = bucket(scalars, opcionais);
 
+  // Recall affected-chassi check (item 11): compare the vehicle chassi against
+  // the recall campaign text. Rendered under the Risco field in "Outros dados".
+  const chassi = topStr(r.data, "chassi");
+  const recallText = buildRecallText(r.data);
+  const hasRecall = Boolean(chassi && recallText);
+
   return (
     <div className="space-y-6">
       {r.fromCache && <CacheBadge cachedAt={r.cachedAt} pending={pending} onForceRefresh={onForceRefresh} />}
@@ -152,11 +159,14 @@ function ChecktudoReport({
 
       {SECTION_ORDER.map((sid) => {
         const rows = sections[sid];
-        if (!rows || rows.length === 0) return null;
-        return <DataSection key={sid} title={SECTION_LABELS[sid]} rows={rows} />;
+        const extra = sid === "outros" && hasRecall
+          ? <RecallAffected key={chassi!} chassi={chassi!} recallText={recallText} />
+          : undefined;
+        if ((!rows || rows.length === 0) && !extra) return null;
+        return <DataSection key={sid} title={SECTION_LABELS[sid]} rows={rows ?? []} extra={extra} />;
       })}
 
-      {priceBlocks.length > 0 && <PriceSection blocks={priceBlocks} />}
+      {priceBlocks.length > 0 && <PriceSection blocks={priceBlocks} consultedAt={r.consultedAt} />}
 
       <details className="surface p-4 group">
         <summary className="cursor-pointer text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)] group-open:text-[var(--fg)]">
@@ -192,7 +202,7 @@ function CacheBadge({
   );
 }
 
-function DataSection({ title, rows }: { title: string; rows: LabeledScalar[] }) {
+function DataSection({ title, rows, extra }: { title: string; rows: LabeledScalar[]; extra?: React.ReactNode }) {
   return (
     <section className="space-y-3">
       <h2 className="font-display uppercase tracking-[0.16em] text-sm text-[var(--accent)]">{title}</h2>
@@ -203,25 +213,82 @@ function DataSection({ title, rows }: { title: string; rows: LabeledScalar[] }) 
             <dd className="text-sm text-[var(--fg-strong)] mt-0.5 break-words">{row.value}</dd>
           </div>
         ))}
+        {extra}
       </dl>
     </section>
   );
 }
 
-function PriceSection({ blocks }: { blocks: PriceBlock[] }) {
+// ── Recall affected-chassi check (Claude) ───────────────────────────────────
+function RecallAffected({ chassi, recallText }: { chassi: string; recallText: string }) {
+  const [verdict, setVerdict] = useState<RecallVerdict | null>(null);
+  const loading = verdict === null;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const v = await analyzeRecallAffected(chassi, recallText);
+      if (!cancelled) setVerdict(v);
+    })();
+    return () => { cancelled = true; };
+  }, [chassi, recallText]);
+
+  let label = "—";
+  let color = "var(--fg-muted)";
+  if (loading) {
+    label = "Analisando…";
+  } else if (verdict?.ok) {
+    if (verdict.afetado === "sim") { label = "SIM"; color = "var(--danger)"; }
+    else if (verdict.afetado === "nao") { label = "NÃO"; color = "var(--success)"; }
+    else { label = "Indeterminado"; color = "var(--fg-muted)"; }
+  } else {
+    label = verdict?.reason === "no_key" ? "Indisponível" : "—";
+  }
+
+  const title = verdict?.ok && verdict.motivo ? verdict.motivo : undefined;
+  return (
+    <div title={title}>
+      <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Veículo Listado Afetado?</dt>
+      <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>{label}</dd>
+    </div>
+  );
+}
+
+/** Top-level (case-insensitive) string lookup on the product data. */
+function topStr(data: ChecktudoData, key: string): string | null {
+  const found = Object.entries(data).find(([k]) => k.toLowerCase() === key.toLowerCase());
+  return found && isNonEmpty(found[1]) ? String(found[1]) : null;
+}
+
+/** Assemble the recall campaign text (defeito + descrição) for the analyzer. */
+function buildRecallText(data: ChecktudoData): string {
+  const recall = (data as Record<string, unknown>).recall as
+    | { detalhes?: Array<Record<string, unknown>> }
+    | undefined;
+  const det = Array.isArray(recall?.detalhes) ? recall!.detalhes : [];
+  const parts: string[] = [];
+  for (const d of det) {
+    const defeito = isNonEmpty(d.defeito) ? String(d.defeito) : "";
+    const desc = isNonEmpty(d.descricaoCompleta) ? String(d.descricaoCompleta) : "";
+    if (defeito || desc) parts.push([defeito, desc].filter(Boolean).join(": "));
+  }
+  return parts.join("\n\n").trim();
+}
+
+function PriceSection({ blocks, consultedAt }: { blocks: PriceBlock[]; consultedAt: string }) {
   return (
     <section className="space-y-3">
       <h2 className="font-display uppercase tracking-[0.16em] text-sm text-[var(--accent)]">FIPE / Preço</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {blocks.flatMap((b, bi) =>
-          b.items.map((it, i) => <PriceCard key={`${bi}-${i}`} item={it} />),
+          b.items.map((it, i) => <PriceCard key={`${bi}-${i}`} item={it} consultedAt={consultedAt} />),
         )}
       </div>
     </section>
   );
 }
 
-function PriceCard({ item }: { item: Record<string, unknown> }) {
+function PriceCard({ item, consultedAt }: { item: Record<string, unknown>; consultedAt: string }) {
   const raw = (...keys: string[]): unknown => {
     for (const k of keys) {
       const found = Object.entries(item).find(([ik]) => ik.toLowerCase() === k.toLowerCase());
@@ -236,27 +303,38 @@ function PriceCard({ item }: { item: Record<string, unknown> }) {
 
   const modelo = str("modelo", "versao");
   const marca = str("marca");
-  const valor = numberOrNull(raw("valor"));
+  // The headline value is the current FIPE: valorAtual when present, otherwise
+  // the value the vendor returned under valor / valorZeroKM.
+  const fipeAtual = numberOrNull(raw("valorAtual") ?? raw("valor") ?? raw("valorZeroKM"));
   const zeroKm = numberOrNull(raw("valorZeroKM"));
   const codigo = str("codigo", "codigoFipe", "fipeId");
   const comb = str("combustivel");
-  const dataRef = str("dataRefFipe", "ano");
+  const dataRef = str("dataRefFipe");
 
   return (
     <article className="surface p-4 flex flex-col gap-2 min-h-[8rem]">
       <div className="font-mono text-2xl text-[var(--fg-strong)] leading-none">
-        {formatBRL(valor) ?? "—"}
-        <span className="ml-2 text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)] align-middle">FIPE</span>
+        {formatBRL(fipeAtual) ?? "—"}
+        <span className="ml-2 text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)] align-middle">FIPE Atual</span>
       </div>
+      <p className="text-[10px] text-[var(--fg-muted)]">Consulta: {fmtConsultDate(consultedAt)}</p>
       {modelo && <p className="text-sm text-[var(--fg-strong)]">{marca ? `${marca} ` : ""}{modelo}</p>}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-auto">
-        {codigo && <Mini label="Código" value={codigo} />}
+        {codigo && <Mini label="Código FIPE" value={codigo} />}
         {comb && <Mini label="Combustível" value={comb} />}
-        {zeroKm !== null && <Mini label="Zero-km" value={formatBRL(zeroKm) ?? "—"} />}
-        {dataRef && <Mini label="Referência" value={dataRef} />}
+        {zeroKm !== null && zeroKm !== fipeAtual && <Mini label="Zero-km" value={formatBRL(zeroKm) ?? "—"} />}
+        {dataRef && <Mini label="Ref. FIPE" value={dataRef} />}
       </dl>
     </article>
   );
+}
+
+function fmtConsultDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return iso;
+  }
 }
 
 function Mini({ label, value }: { label: string; value: string }) {

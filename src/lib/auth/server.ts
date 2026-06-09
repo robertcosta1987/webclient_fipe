@@ -39,3 +39,11 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   return verifySession(token, secret());
 }
+
+/** The current user's id for tenant scoping. Throws if unauthenticated
+ *  (every app route is behind middleware, so this is a safety net). */
+export async function requireUserId(): Promise<string> {
+  const s = await getSession();
+  if (!s) throw new Error("Não autenticado.");
+  return s.userId;
+}

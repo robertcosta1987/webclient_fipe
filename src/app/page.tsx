@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Root redirects to Carros Ativos — the default view for the operator.
+// Root redirects to the default view (Tabela KBB).
 export default function RootPage() {
-  redirect("/carros-ativos");
+  redirect("/precos");
 }

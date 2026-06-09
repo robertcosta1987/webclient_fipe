@@ -2,85 +2,63 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { AddCarModal } from "./AddCarModal";
 import { logout } from "@/app/actions/auth";
 
 const nav = [
-  { href: "/carros-ativos", label: "Carros Ativos" },
-  { href: "/buscar", label: "Buscar" },
-  { href: "/precos", label: "Preços" },
-  { href: "/relatorios", label: "Relatórios", disabled: true },
-  { href: "/historico-kbb", label: "Histórico KBB" },
-  { href: "/checktudo", label: "CheckTudo" },
+  { href: "/precos", label: "Tabela KBB" },
+  { href: "/checktudo", label: "Checa Tudo" },
 ];
 
 export function TopBar({ user }: { user?: { email: string; role: string } | null }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
   // No app chrome on the public auth pages.
   if (pathname === "/login" || pathname === "/register") return null;
 
   return (
-    <>
-      <header className="erp-topbar sticky top-0 z-30">
-        <div className="erp-topbar-inner">
-          <Link href="/" className="erp-brand">
-            <span className="erp-brand-bar" />
-            Concessionária Demo
-          </Link>
+    <header className="erp-topbar sticky top-0 z-30">
+      <div className="erp-topbar-inner">
+        <Link href="/" className="erp-brand">
+          <span className="erp-brand-bar" />
+          Placas360
+        </Link>
 
-          <nav className="erp-nav">
-            {nav.map((it) => {
-              const active =
-                pathname === it.href || (it.href !== "/" && pathname?.startsWith(it.href));
-              if (it.disabled) {
-                return (
-                  <span key={it.href} className="erp-navtab erp-navtab--disabled" title="Em breve">
-                    {it.label}
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  className={`erp-navtab${active ? " erp-navtab--active" : ""}`}
-                >
-                  {it.label}
-                </Link>
-              );
-            })}
-            {user?.role === "admin" && (
+        <nav className="erp-nav">
+          {nav.map((it) => {
+            const active = pathname === it.href || pathname?.startsWith(`${it.href}/`);
+            return (
               <Link
-                href="/admin/convites"
-                className={`erp-navtab${pathname?.startsWith("/admin/convites") ? " erp-navtab--active" : ""}`}
+                key={it.href}
+                href={it.href}
+                className={`erp-navtab${active ? " erp-navtab--active" : ""}`}
               >
-                Convites
+                {it.label}
               </Link>
-            )}
-          </nav>
-
-          {user && (
-            <div className="erp-user">
-              <span className="erp-user-name">{user.email}</span>
-              <span className="erp-user-role">{user.role}</span>
-            </div>
+            );
+          })}
+          {user?.role === "admin" && (
+            <Link
+              href="/admin/convites"
+              className={`erp-navtab${pathname?.startsWith("/admin/convites") ? " erp-navtab--active" : ""}`}
+            >
+              Convites
+            </Link>
           )}
+        </nav>
 
-          <button onClick={() => setOpen(true)} className="btn-primary erp-addbtn text-sm">
-            + Adicionar Veículo
-          </button>
+        {user && (
+          <div className="erp-user">
+            <span className="erp-user-name">{user.email}</span>
+            <span className="erp-user-role">{user.role}</span>
+          </div>
+        )}
 
-          {user && (
-            <form action={logout} style={{ marginBottom: 6 }}>
-              <button type="submit" className="btn-ghost text-sm">Sair</button>
-            </form>
-          )}
-        </div>
-      </header>
-      <AddCarModal open={open} onClose={() => setOpen(false)} />
-    </>
+        {user && (
+          <form action={logout} style={{ marginBottom: 6 }}>
+            <button type="submit" className="btn-ghost text-sm">Sair</button>
+          </form>
+        )}
+      </div>
+    </header>
   );
 }

@@ -56,7 +56,7 @@ export async function register(formData: FormData): Promise<AuthResult> {
     if (/unique|duplicate/i.test(msg)) return { error: "Já existe uma conta com este e-mail." };
     return { error: "Não foi possível concluir o cadastro. Tente novamente." };
   }
-  redirect("/carros-ativos");
+  redirect("/precos");
 }
 
 export async function login(formData: FormData): Promise<AuthResult> {
@@ -78,7 +78,7 @@ export async function login(formData: FormData): Promise<AuthResult> {
   } catch {
     return { error: "Falha ao entrar. Tente novamente." };
   }
-  redirect("/carros-ativos");
+  redirect("/precos");
 }
 
 export async function logout(): Promise<void> {
