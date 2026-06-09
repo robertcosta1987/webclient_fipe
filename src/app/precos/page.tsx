@@ -35,8 +35,7 @@ export default async function PrecosPage() {
           <p className="text-sm text-[var(--fg-muted)] mt-2 max-w-2xl rise rise-d2">
             Consulta de preços por placa via Molicar (decoder + KBB). Mostra as
             faixas KBB (zero-km, varejo, particular, troca, atacado), o preço
-            Molicar e os dados do veículo. Resultados ficam em cache por{" "}
-            <span className="text-[var(--fg)]">90 dias</span> por placa.
+            Molicar e os dados do veículo. Resultados ficam salvos em cache por placa.
           </p>
         </header>
         <Suspense fallback={null}>
@@ -56,7 +55,7 @@ export default async function PrecosPage() {
               ) : (
                 <>
                   <span className="font-mono text-[var(--fg)]">{rows.length}</span> consulta
-                  {rows.length === 1 ? "" : "s"} em cache (90 dias).
+                  {rows.length === 1 ? "" : "s"} em cache.
                 </>
               )}
             </p>

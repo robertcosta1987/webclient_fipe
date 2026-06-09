@@ -192,7 +192,7 @@ function CacheBadge({
   return (
     <div className="surface border border-[var(--accent)]/40 p-3 flex flex-wrap items-center justify-between gap-3 text-sm">
       <div className="flex items-baseline gap-2">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">Cache · 90 dias</span>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">Em cache</span>
         <span className="text-[var(--fg-muted)]">
           Última consulta em <span className="text-[var(--fg-strong)]">{whenLabel}</span>
         </span>

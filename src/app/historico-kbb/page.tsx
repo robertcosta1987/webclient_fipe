@@ -26,7 +26,7 @@ export default async function HistoricoKbbPage() {
               <>Nenhuma consulta ainda. Faça uma busca em <Link href="/precos" className="underline">/precos</Link> para popular o histórico.</>
             ) : (
               <>
-                <span className="font-mono text-[var(--fg)]">{rows.length}</span> consulta{rows.length === 1 ? "" : "s"} salva{rows.length === 1 ? "" : "s"}. Cada placa fica em cache por <span className="text-[var(--fg)]">90 dias</span> — repetir a busca dentro desse período não consome cota do Molicar.
+                <span className="font-mono text-[var(--fg)]">{rows.length}</span> consulta{rows.length === 1 ? "" : "s"} salva{rows.length === 1 ? "" : "s"}. Cada placa fica salva em cache — repetir a busca não consome cota do Molicar.
               </>
             )}
           </p>

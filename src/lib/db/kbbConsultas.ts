@@ -30,26 +30,23 @@ const SELECT_COLS = [
   "source_id", "upstream_latency_ms", "payload", "consulted_at",
 ].join(", ");
 
-const CACHE_TTL_DAYS = 90;
-
 export type CachedHit = {
   row: KbbConsultaRow;
   payload: MolicarPayload;
 };
 
-/** Latest consultation for `placa` (this owner) if it's newer than 90 days. */
+/** Latest consultation for `placa` (this owner). Cache is kept indefinitely —
+ *  the most recent row is always reused, regardless of age (cleared manually). */
 export async function findFreshByPlaca(placa: string, ownerId: string): Promise<CachedHit | null> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
     .input("owner", sql.UniqueIdentifier, ownerId)
-    .input("ttl", sql.Int, CACHE_TTL_DAYS)
     .query(`
       SELECT TOP 1 ${SELECT_COLS}
       FROM kbb_consultas
       WHERE placa = @placa
         AND owner_id = @owner
-        AND consulted_at >= DATEADD(day, -@ttl, SYSUTCDATETIME())
       ORDER BY consulted_at DESC
     `);
   const row = r.recordset[0] as KbbConsultaRow | undefined;

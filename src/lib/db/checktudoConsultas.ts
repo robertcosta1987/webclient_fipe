@@ -36,28 +36,25 @@ const SELECT_COLS = [
   "recall_afetado", "recall_motivo",
 ].join(", ");
 
-const CACHE_TTL_DAYS = 90;
-
 export type CachedHit = {
   row: ChecktudoConsultaRow;
   data: ChecktudoData;
 };
 
-/** Latest consultation for (placa, productCode, owner) if newer than 90 days. */
+/** Latest consultation for (placa, productCode, owner). Cache is kept
+ *  indefinitely — the most recent row is always reused (cleared manually). */
 export async function findFreshByPlaca(placa: string, productCode: number, ownerId: string): Promise<CachedHit | null> {
   const p = await getPool();
   const r = await p.request()
     .input("placa", sql.NVarChar(10), placa)
     .input("product", sql.SmallInt, productCode)
     .input("owner", sql.UniqueIdentifier, ownerId)
-    .input("ttl", sql.Int, CACHE_TTL_DAYS)
     .query(`
       SELECT TOP 1 ${SELECT_COLS}
       FROM checktudo_consultas
       WHERE placa = @placa
         AND product_code = @product
         AND owner_id = @owner
-        AND consulted_at >= DATEADD(day, -@ttl, SYSUTCDATETIME())
       ORDER BY consulted_at DESC
     `);
   const row = r.recordset[0] as ChecktudoConsultaRow | undefined;

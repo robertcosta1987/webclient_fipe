@@ -40,9 +40,8 @@ export default async function CheckTudoPage() {
           <p className="text-sm text-[var(--fg-muted)] mt-2 max-w-2xl rise rise-d2">
             Consulta de dados veiculares por placa via CheckTudo. Escolha o
             produto (Veículo Total, Essencial, Decodificador, etc.) e a resposta
-            é renderizada por seções. Resultados ficam em cache por{" "}
-            <span className="text-[var(--fg)]">90 dias</span> por placa + produto —
-            repetir a busca dentro desse período não consome nova consulta.
+            é renderizada por seções. Resultados ficam salvos em cache por placa +
+            produto — repetir a busca não consome nova consulta.
           </p>
         </header>
         <Suspense fallback={null}>
@@ -62,7 +61,7 @@ export default async function CheckTudoPage() {
               ) : (
                 <>
                   <span className="font-mono text-[var(--fg)]">{rows.length}</span> consulta
-                  {rows.length === 1 ? "" : "s"} em cache (90 dias).
+                  {rows.length === 1 ? "" : "s"} em cache.
                 </>
               )}
             </p>

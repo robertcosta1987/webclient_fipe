@@ -61,7 +61,8 @@ export async function lookupPlacaPrecos(
   }
   const ownerId = await requireUserId();
 
-  // 1. Cache check — return the most recent row if it's <= 90 days old.
+  // 1. Cache check — return the most recent saved row for this placa (kept
+  //    indefinitely; cleared only manually).
   if (!opts.forceRefresh) {
     try {
       const hit = await kbb.findFreshByPlaca(placa, ownerId);

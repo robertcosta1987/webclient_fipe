@@ -80,7 +80,8 @@ export async function lookupPlacaChecktudo(
   }
   const ownerId = await requireUserId();
 
-  // 1. Cache check — most recent row for placa+product if <= 90 days old.
+  // 1. Cache check — most recent saved row for placa+product (kept
+  //    indefinitely; cleared only manually).
   if (!opts.forceRefresh) {
     try {
       const hit = await ct.findFreshByPlaca(placa, productCode, ownerId);
