@@ -97,8 +97,11 @@ export async function lookupPlacaChecktudo(
   // 2. Live call to the CheckTudo function.
   const result = await fetchChecktudoByPlate(placa, productCode);
   if (!result.ok) {
+    // Prefer a known friendly tag; otherwise surface the vendor's own message
+    // (e.g. "limite de consultas atingido") instead of a bare HTTP code.
     const friendly =
       ERROR_MESSAGES[result.error] ??
+      (result.message && result.message.trim() ? result.message.trim() : null) ??
       (result.status ? `Erro do serviço CheckTudo (HTTP ${result.status}).` : "Erro desconhecido.");
     return { ok: false, error: friendly };
   }
