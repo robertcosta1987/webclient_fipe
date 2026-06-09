@@ -246,6 +246,9 @@ export function parecerLabel(v: string | null): { label: string; color: string; 
   return { label: "—", color: "var(--fg-muted)", bg: "transparent" };
 }
 
+// Shared chip styling so the RECALL and parecer labels are the same size.
+const VERDICT_CHIP = "text-sm uppercase tracking-[0.1em] font-bold px-3 py-1.5 rounded leading-none whitespace-nowrap";
+
 function ParecerBanner({
   veredito, motivo, recallAfetado, recallMotivo,
 }: {
@@ -257,38 +260,26 @@ function ParecerBanner({
   const { label, color, bg } = parecerLabel(veredito);
   // Only vehicles whose chassi falls inside an affected recall range get the tag.
   const affected = recallAfetado === "sim";
+  const recallTip = recallMotivo?.trim() || undefined;
   return (
     <div
-      className="surface flex flex-wrap items-center gap-x-4 gap-y-1 p-4"
+      className="surface flex flex-wrap items-center gap-x-3 gap-y-2 p-4"
       style={{ background: bg, borderColor: color }}
     >
-      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Parecer de Compra</span>
-      <span className="font-display text-xl leading-none" style={{ color }}>{label}</span>
-      {affected && <RecallTag motivo={recallMotivo} />}
+      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)] w-full sm:w-auto">Parecer de Compra</span>
+      {affected && (
+        recallTip ? (
+          <HoverInfo content={recallTip}>
+            <span className={`cursor-help inline-block ${VERDICT_CHIP}`} style={{ color: "#fff", background: "var(--danger)" }}>RECALL</span>
+          </HoverInfo>
+        ) : (
+          <span className={`inline-block ${VERDICT_CHIP}`} style={{ color: "#fff", background: "var(--danger)" }}>RECALL</span>
+        )
+      )}
+      <span className={VERDICT_CHIP} style={{ color: "#fff", background: color }}>{label}</span>
       {motivo && <span className="text-sm text-[var(--fg)] flex-1 min-w-[12rem]">{motivo}</span>}
       <span className="text-[10px] text-[var(--fg-faint)] w-full">Análise por IA a partir dos sinais da consulta — não substitui vistoria.</span>
     </div>
-  );
-}
-
-// Red "RECALL" tag shown beside the parecer label when the chassi is inside an
-// affected recall range. Hovering reveals the reason (same motivo as the field).
-function RecallTag({ motivo }: { motivo: string | null }) {
-  const tip = motivo?.trim() || undefined;
-  const chip = (
-    <span
-      className="font-display text-xs uppercase tracking-[0.18em] leading-none px-2 py-1 rounded"
-      style={{ color: "#fff", background: "var(--danger)" }}
-    >
-      RECALL
-    </span>
-  );
-  return tip ? (
-    <HoverInfo content={tip}>
-      <span className="cursor-help">{chip}</span>
-    </HoverInfo>
-  ) : (
-    chip
   );
 }
 

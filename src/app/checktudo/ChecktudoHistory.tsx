@@ -80,16 +80,6 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
           <p className="text-xs text-[var(--fg-muted)]">{row.product_name ?? `Produto ${row.product_code}`}</p>
         </div>
 
-        {row.parecer_veredito && (
-          <span
-            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
-            style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
-            title={row.parecer_motivo ?? "Parecer de Compra"}
-          >
-            {parecer.label}
-          </span>
-        )}
-
         {row.recall_afetado === "sim" && (
           <span
             className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
@@ -97,6 +87,16 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
             title={row.recall_motivo ?? "Chassi dentro de faixa de recall afetada"}
           >
             RECALL
+          </span>
+        )}
+
+        {row.parecer_veredito && (
+          <span
+            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+            style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
+            title={row.parecer_motivo ?? "Parecer de Compra"}
+          >
+            {parecer.label}
           </span>
         )}
 
