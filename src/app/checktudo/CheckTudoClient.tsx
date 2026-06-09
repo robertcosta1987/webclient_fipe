@@ -276,9 +276,14 @@ function ParecerBanner({
           <span className={`inline-block ${VERDICT_CHIP}`} style={{ color: "#fff", background: "var(--danger)" }}>RECALL</span>
         )
       )}
-      <span className={VERDICT_CHIP} style={{ color: "#fff", background: color }}>{label}</span>
-      {motivo && <span className="text-sm text-[var(--fg)] flex-1 min-w-[12rem]">{motivo}</span>}
-      <span className="text-[10px] text-[var(--fg-faint)] w-full">Análise por IA a partir dos sinais da consulta — não substitui vistoria.</span>
+      {motivo?.trim() ? (
+        <HoverInfo content={motivo}>
+          <span className={`cursor-help inline-block ${VERDICT_CHIP}`} style={{ color: "#fff", background: color }}>{label}</span>
+        </HoverInfo>
+      ) : (
+        <span className={VERDICT_CHIP} style={{ color: "#fff", background: color }}>{label}</span>
+      )}
+      <span className="text-[10px] text-[var(--fg-faint)] w-full">Passe o mouse sobre o parecer para ver o porquê · análise por IA a partir dos sinais da consulta — não substitui vistoria.</span>
     </div>
   );
 }
