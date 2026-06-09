@@ -150,7 +150,14 @@ export function ChecktudoReport({
     <div className="space-y-6">
       {r.fromCache && <CacheBadge cachedAt={r.cachedAt} pending={pending} onForceRefresh={onForceRefresh} />}
 
-      {r.parecerVeredito && <ParecerBanner veredito={r.parecerVeredito} motivo={r.parecerMotivo} />}
+      {r.parecerVeredito && (
+        <ParecerBanner
+          veredito={r.parecerVeredito}
+          motivo={r.parecerMotivo}
+          recallAfetado={r.recallAfetado}
+          recallMotivo={r.recallMotivo}
+        />
+      )}
 
       <header className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
         <Plate placa={r.placa} size="lg" />
@@ -239,8 +246,17 @@ export function parecerLabel(v: string | null): { label: string; color: string; 
   return { label: "—", color: "var(--fg-muted)", bg: "transparent" };
 }
 
-function ParecerBanner({ veredito, motivo }: { veredito: string; motivo: string | null }) {
+function ParecerBanner({
+  veredito, motivo, recallAfetado, recallMotivo,
+}: {
+  veredito: string;
+  motivo: string | null;
+  recallAfetado: string | null;
+  recallMotivo: string | null;
+}) {
   const { label, color, bg } = parecerLabel(veredito);
+  // Only vehicles whose chassi falls inside an affected recall range get the tag.
+  const affected = recallAfetado === "sim";
   return (
     <div
       className="surface flex flex-wrap items-center gap-x-4 gap-y-1 p-4"
@@ -248,9 +264,31 @@ function ParecerBanner({ veredito, motivo }: { veredito: string; motivo: string 
     >
       <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Parecer de Compra</span>
       <span className="font-display text-xl leading-none" style={{ color }}>{label}</span>
+      {affected && <RecallTag motivo={recallMotivo} />}
       {motivo && <span className="text-sm text-[var(--fg)] flex-1 min-w-[12rem]">{motivo}</span>}
       <span className="text-[10px] text-[var(--fg-faint)] w-full">Análise por IA a partir dos sinais da consulta — não substitui vistoria.</span>
     </div>
+  );
+}
+
+// Red "RECALL" tag shown beside the parecer label when the chassi is inside an
+// affected recall range. Hovering reveals the reason (same motivo as the field).
+function RecallTag({ motivo }: { motivo: string | null }) {
+  const tip = motivo?.trim() || undefined;
+  const chip = (
+    <span
+      className="font-display text-xs uppercase tracking-[0.18em] leading-none px-2 py-1 rounded"
+      style={{ color: "#fff", background: "var(--danger)" }}
+    >
+      RECALL
+    </span>
+  );
+  return tip ? (
+    <HoverInfo content={tip}>
+      <span className="cursor-help">{chip}</span>
+    </HoverInfo>
+  ) : (
+    chip
   );
 }
 

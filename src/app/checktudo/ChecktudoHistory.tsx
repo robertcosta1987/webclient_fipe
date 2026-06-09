@@ -90,6 +90,16 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
           </span>
         )}
 
+        {row.recall_afetado === "sim" && (
+          <span
+            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+            style={{ color: "#fff", background: "var(--danger)" }}
+            title={row.recall_motivo ?? "Chassi dentro de faixa de recall afetada"}
+          >
+            RECALL
+          </span>
+        )}
+
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Consultado em</p>
           <p className="text-xs font-mono text-[var(--fg)]">{DATE_FMT.format(when)}</p>
