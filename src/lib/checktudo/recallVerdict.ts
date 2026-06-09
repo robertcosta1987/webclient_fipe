@@ -36,7 +36,9 @@ const SYSTEM =
   "chassi e compare. Depois conclua.\n" +
   "Ao FINAL, escreva EXATAMENTE estas duas linhas (nada depois delas):\n" +
   "VEREDITO: SIM   |   ou VEREDITO: NAO   |   ou VEREDITO: INDETERMINADO\n" +
-  "MOTIVO: <frase curta em português explicando a comparação que decidiu>";
+  "MOTIVO: <frase curta CITANDO o chassi e a faixa que decidiu. Ex.: \"Chassi ...GK048630 " +
+  "está dentro da faixa GK000279 a GK096619 (recall de freios)\" ou \"Chassi ...JP073209 " +
+  "está fora de todas as faixas listadas\">";
 
 export async function computeRecallVerdict(chassi: string, recallText: string): Promise<RecallVerdict> {
   const key = process.env.ANTHROPIC_API_KEY;

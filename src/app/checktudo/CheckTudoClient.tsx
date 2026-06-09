@@ -159,7 +159,7 @@ export function ChecktudoReport({
       {SECTION_ORDER.map((sid) => {
         const rows = sections[sid];
         const extra = sid === "outros" && hasRecall
-          ? <RecallAffectedField afetado={r.recallAfetado} />
+          ? <RecallAffectedField afetado={r.recallAfetado} motivo={r.recallMotivo} />
           : undefined;
         if ((!rows || rows.length === 0) && !extra) return null;
         return <DataSection key={sid} title={SECTION_LABELS[sid]} rows={rows ?? []} extra={extra} />;
@@ -226,12 +226,19 @@ export function recallAfetadoLabel(afetado: string | null): { label: string; col
   return { label: "—", color: "var(--fg-muted)" };
 }
 
-function RecallAffectedField({ afetado }: { afetado: string | null }) {
+function RecallAffectedField({ afetado, motivo }: { afetado: string | null; motivo: string | null }) {
   const { label, color } = recallAfetadoLabel(afetado);
+  const tip = motivo?.trim() || undefined;
   return (
     <div>
       <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
-      <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>{label}</dd>
+      <dd
+        className={`text-sm mt-0.5 font-semibold ${tip ? "cursor-help underline decoration-dotted underline-offset-4" : ""}`}
+        style={{ color }}
+        title={tip}
+      >
+        {label}
+      </dd>
     </div>
   );
 }

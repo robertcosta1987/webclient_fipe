@@ -80,7 +80,7 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
 
         {row.recall_afetado && (
           <span
-            className="text-[10px] uppercase tracking-[0.1em] font-bold px-2 py-1 rounded whitespace-nowrap"
+            className="text-[10px] uppercase tracking-[0.1em] font-bold px-2 py-1 rounded whitespace-nowrap cursor-help"
             style={{ color: recall.color, border: `1px solid ${recall.color}` }}
             title={row.recall_motivo ?? "Chassi com Recall?"}
           >
@@ -107,7 +107,11 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
               <Cell label="ID da consulta" value={row.id.slice(0, 8)} mono />
               <div>
                 <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
-                <dd className="mt-0.5 font-semibold" style={{ color: recall.color }} title={row.recall_motivo ?? undefined}>
+                <dd
+                  className={`mt-0.5 font-semibold ${row.recall_motivo ? "cursor-help underline decoration-dotted underline-offset-4" : ""}`}
+                  style={{ color: recall.color }}
+                  title={row.recall_motivo ?? undefined}
+                >
                   {recall.label}
                 </dd>
               </div>
