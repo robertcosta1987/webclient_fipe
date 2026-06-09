@@ -10,7 +10,7 @@ import { fetchPricingByPlate } from "@/lib/pricing/client";
 import type { MolicarPayload } from "@/lib/pricing/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as kbb from "@/lib/db/kbbConsultas";
-import { requireUserId } from "@/lib/auth/server";
+import { requireScope } from "@/lib/auth/server";
 
 export type PrecosLookupResult =
   | {
@@ -59,13 +59,13 @@ export async function lookupPlacaPrecos(
   if (!isValidPlaca(placa)) {
     return { ok: false, error: ERROR_MESSAGES.invalid_plate };
   }
-  const ownerId = await requireUserId();
+  const { userId: ownerId, master } = await requireScope();
 
   // 1. Cache check — return the most recent saved row for this placa (kept
-  //    indefinitely; cleared only manually).
+  //    indefinitely; cleared only manually). A master reuses any owner's row.
   if (!opts.forceRefresh) {
     try {
-      const hit = await kbb.findFreshByPlaca(placa, ownerId);
+      const hit = await kbb.findFreshByPlaca(placa, master ? null : ownerId);
       if (hit) {
         return {
           ok: true,

@@ -16,7 +16,7 @@ import {
 } from "@/lib/checktudo/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as ct from "@/lib/db/checktudoConsultas";
-import { requireUserId } from "@/lib/auth/server";
+import { requireScope } from "@/lib/auth/server";
 import { extractRecall } from "@/lib/checktudo/recall";
 import { computeRecallVerdict } from "@/lib/checktudo/recallVerdict";
 
@@ -78,13 +78,13 @@ export async function lookupPlacaChecktudo(
   if (!isValidProduct(productCode)) {
     return { ok: false, error: ERROR_MESSAGES.invalid_product };
   }
-  const ownerId = await requireUserId();
+  const { userId: ownerId, master } = await requireScope();
 
   // 1. Cache check — most recent saved row for placa+product (kept
-  //    indefinitely; cleared only manually).
+  //    indefinitely; cleared only manually). A master reuses any owner's row.
   if (!opts.forceRefresh) {
     try {
-      const hit = await ct.findFreshByPlaca(placa, productCode, ownerId);
+      const hit = await ct.findFreshByPlaca(placa, productCode, master ? null : ownerId);
       if (hit) {
         return {
           ok: true,

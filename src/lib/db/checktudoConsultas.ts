@@ -41,22 +41,27 @@ export type CachedHit = {
   data: ChecktudoData;
 };
 
-/** Latest consultation for (placa, productCode, owner). Cache is kept
- *  indefinitely — the most recent row is always reused (cleared manually). */
-export async function findFreshByPlaca(placa: string, productCode: number, ownerId: string): Promise<CachedHit | null> {
+/** Latest consultation for (placa, productCode). Cache is kept indefinitely.
+ *  `ownerId = null` (master) reuses ANY owner's row, including legacy
+ *  NULL-owner rows. */
+export async function findFreshByPlaca(placa: string, productCode: number, ownerId: string | null): Promise<CachedHit | null> {
   const p = await getPool();
-  const r = await p.request()
+  const req = p.request()
     .input("placa", sql.NVarChar(10), placa)
-    .input("product", sql.SmallInt, productCode)
-    .input("owner", sql.UniqueIdentifier, ownerId)
-    .query(`
-      SELECT TOP 1 ${SELECT_COLS}
-      FROM checktudo_consultas
-      WHERE placa = @placa
-        AND product_code = @product
-        AND owner_id = @owner
-      ORDER BY consulted_at DESC
-    `);
+    .input("product", sql.SmallInt, productCode);
+  let ownerClause = "";
+  if (ownerId !== null) {
+    req.input("owner", sql.UniqueIdentifier, ownerId);
+    ownerClause = "AND owner_id = @owner";
+  }
+  const r = await req.query(`
+    SELECT TOP 1 ${SELECT_COLS}
+    FROM checktudo_consultas
+    WHERE placa = @placa
+      AND product_code = @product
+      ${ownerClause}
+    ORDER BY consulted_at DESC
+  `);
   const row = r.recordset[0] as ChecktudoConsultaRow | undefined;
   if (!row) return null;
   return { row, data: safeParse(row.payload) };

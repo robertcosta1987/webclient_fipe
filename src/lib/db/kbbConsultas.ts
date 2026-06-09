@@ -35,20 +35,23 @@ export type CachedHit = {
   payload: MolicarPayload;
 };
 
-/** Latest consultation for `placa` (this owner). Cache is kept indefinitely —
- *  the most recent row is always reused, regardless of age (cleared manually). */
-export async function findFreshByPlaca(placa: string, ownerId: string): Promise<CachedHit | null> {
+/** Latest consultation for `placa`. Cache is kept indefinitely. `ownerId = null`
+ *  (master) reuses ANY owner's row, including legacy NULL-owner rows. */
+export async function findFreshByPlaca(placa: string, ownerId: string | null): Promise<CachedHit | null> {
   const p = await getPool();
-  const r = await p.request()
-    .input("placa", sql.NVarChar(10), placa)
-    .input("owner", sql.UniqueIdentifier, ownerId)
-    .query(`
-      SELECT TOP 1 ${SELECT_COLS}
-      FROM kbb_consultas
-      WHERE placa = @placa
-        AND owner_id = @owner
-      ORDER BY consulted_at DESC
-    `);
+  const req = p.request().input("placa", sql.NVarChar(10), placa);
+  let ownerClause = "";
+  if (ownerId !== null) {
+    req.input("owner", sql.UniqueIdentifier, ownerId);
+    ownerClause = "AND owner_id = @owner";
+  }
+  const r = await req.query(`
+    SELECT TOP 1 ${SELECT_COLS}
+    FROM kbb_consultas
+    WHERE placa = @placa
+      ${ownerClause}
+    ORDER BY consulted_at DESC
+  `);
   const row = r.recordset[0] as KbbConsultaRow | undefined;
   if (!row) return null;
   return { row, payload: safeParse(row.payload) };
