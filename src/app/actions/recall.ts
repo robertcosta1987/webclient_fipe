@@ -45,13 +45,18 @@ export async function analyzeRecallAffected(chassi: string, recallText: string):
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 250,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "user", content: prompt },
+          // Prefill the reply so the model emits pure JSON (no prose/fences).
+          { role: "assistant", content: "{" },
+        ],
       }),
     });
     if (!res.ok) return { ok: false, reason: "api_error" };
     const json = await res.json();
     const out: string = json?.content?.[0]?.text ?? "";
-    const m = out.match(/\{[\s\S]*\}/);
+    // We prefilled "{", so prepend it; take the first complete (flat) object.
+    const m = `{${out}`.match(/\{[\s\S]*?\}/);
     if (!m) return { ok: false, reason: "api_error" };
     const parsed = JSON.parse(m[0]) as { afetado?: string; motivo?: string };
     const a = String(parsed.afetado || "").toLowerCase();
