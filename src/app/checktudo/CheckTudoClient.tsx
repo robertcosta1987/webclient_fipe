@@ -14,7 +14,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { lookupPlacaChecktudo, type ChecktudoLookupResult } from "@/app/actions/checktudo";
-import { analyzeRecallAffected, type RecallVerdict } from "@/app/actions/recall";
+import { extractRecall } from "@/lib/checktudo/recall";
 import {
   CHECKTUDO_PRODUCTS,
   CHECKTUDO_DEFAULT_PRODUCT,
@@ -140,11 +140,10 @@ function ChecktudoReport({
   const { scalars, priceBlocks, opcionais } = collect(r.data);
   const sections = bucket(scalars, opcionais);
 
-  // Recall affected-chassi check (item 11): compare the vehicle chassi against
-  // the recall campaign text. Rendered under the Risco field in "Outros dados".
-  const chassi = topStr(r.data, "chassi");
-  const recallText = buildRecallText(r.data);
-  const hasRecall = Boolean(chassi && recallText);
+  // Recall affected-chassi check (item 11): the verdict is computed + persisted
+  // by the action; here we just show it under Risco in "Outros dados" when the
+  // consult carried recall data.
+  const hasRecall = extractRecall(r.data).recallText.length > 0;
 
   return (
     <div className="space-y-6">
@@ -160,7 +159,7 @@ function ChecktudoReport({
       {SECTION_ORDER.map((sid) => {
         const rows = sections[sid];
         const extra = sid === "outros" && hasRecall
-          ? <RecallAffected key={chassi!} chassi={chassi!} recallText={recallText} />
+          ? <RecallAffectedField afetado={r.recallAfetado} />
           : undefined;
         if ((!rows || rows.length === 0) && !extra) return null;
         return <DataSection key={sid} title={SECTION_LABELS[sid]} rows={rows ?? []} extra={extra} />;
@@ -219,60 +218,22 @@ function DataSection({ title, rows, extra }: { title: string; rows: LabeledScala
   );
 }
 
-// ── Recall affected-chassi check (Claude) ───────────────────────────────────
-function RecallAffected({ chassi, recallText }: { chassi: string; recallText: string }) {
-  const [verdict, setVerdict] = useState<RecallVerdict | null>(null);
-  const loading = verdict === null;
+// ── Recall affected-chassi verdict (precomputed by the action) ──────────────
+export function recallAfetadoLabel(afetado: string | null): { label: string; color: string } {
+  if (afetado === "sim") return { label: "SIM", color: "var(--danger)" };
+  if (afetado === "nao") return { label: "NÃO", color: "var(--success)" };
+  if (afetado === "indeterminado") return { label: "Indeterminado", color: "var(--fg-muted)" };
+  return { label: "—", color: "var(--fg-muted)" };
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const v = await analyzeRecallAffected(chassi, recallText);
-      if (!cancelled) setVerdict(v);
-    })();
-    return () => { cancelled = true; };
-  }, [chassi, recallText]);
-
-  let label = "—";
-  let color = "var(--fg-muted)";
-  if (loading) {
-    label = "Analisando…";
-  } else if (verdict?.ok) {
-    if (verdict.afetado === "sim") { label = "SIM"; color = "var(--danger)"; }
-    else if (verdict.afetado === "nao") { label = "NÃO"; color = "var(--success)"; }
-    else { label = "Indeterminado"; color = "var(--fg-muted)"; }
-  } else {
-    label = verdict?.reason === "no_key" ? "Indisponível" : "—";
-  }
-
-  const title = verdict?.ok && verdict.motivo ? verdict.motivo : undefined;
+function RecallAffectedField({ afetado }: { afetado: string | null }) {
+  const { label, color } = recallAfetadoLabel(afetado);
   return (
-    <div title={title}>
+    <div>
       <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Veículo Listado Afetado?</dt>
       <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>{label}</dd>
     </div>
   );
-}
-
-/** Top-level (case-insensitive) string lookup on the product data. */
-function topStr(data: ChecktudoData, key: string): string | null {
-  const found = Object.entries(data).find(([k]) => k.toLowerCase() === key.toLowerCase());
-  return found && isNonEmpty(found[1]) ? String(found[1]) : null;
-}
-
-/** Assemble the recall campaign text (defeito + descrição) for the analyzer. */
-function buildRecallText(data: ChecktudoData): string {
-  const recall = (data as Record<string, unknown>).recall as
-    | { detalhes?: Array<Record<string, unknown>> }
-    | undefined;
-  const det = Array.isArray(recall?.detalhes) ? recall!.detalhes : [];
-  const parts: string[] = [];
-  for (const d of det) {
-    const defeito = isNonEmpty(d.defeito) ? String(d.defeito) : "";
-    const desc = isNonEmpty(d.descricaoCompleta) ? String(d.descricaoCompleta) : "";
-    if (defeito || desc) parts.push([defeito, desc].filter(Boolean).join(": "));
-  }
-  return parts.join("\n\n").trim();
 }
 
 function PriceSection({ blocks, consultedAt }: { blocks: PriceBlock[]; consultedAt: string }) {

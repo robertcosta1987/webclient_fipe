@@ -47,3 +47,18 @@ export async function requireUserId(): Promise<string> {
   if (!s) throw new Error("Não autenticado.");
   return s.userId;
 }
+
+// Master users see EVERY tenant's cached consults (cross-tenant read).
+const MASTER_EMAILS = new Set(["admin@3ahub.com.br"]);
+
+export function isMasterEmail(email: string | null | undefined): boolean {
+  return !!email && MASTER_EMAILS.has(email.toLowerCase());
+}
+
+/** Tenant scope for the current request: the user's own id, plus whether they
+ *  are a master (who reads across all owners). For writes, always use `userId`. */
+export async function requireScope(): Promise<{ userId: string; master: boolean }> {
+  const s = await getSession();
+  if (!s) throw new Error("Não autenticado.");
+  return { userId: s.userId, master: isMasterEmail(s.email) };
+}

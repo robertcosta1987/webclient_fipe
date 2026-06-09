@@ -69,18 +69,22 @@ export async function getById(id: string, ownerId: string): Promise<(KbbConsulta
   return { ...row, parsed: safeParse(row.payload) };
 }
 
-/** Most recent N consultations for this owner, newest first. */
-export async function listRecent(ownerId: string, limit = 100): Promise<KbbConsultaRow[]> {
+/** Most recent N consultations, newest first. `ownerId = null` (master) returns
+ *  all owners' consultations. */
+export async function listRecent(ownerId: string | null, limit = 100): Promise<KbbConsultaRow[]> {
   const p = await getPool();
-  const r = await p.request()
-    .input("owner", sql.UniqueIdentifier, ownerId)
-    .input("lim", sql.Int, limit)
-    .query(`
-      SELECT TOP (@lim) ${SELECT_COLS}
-      FROM kbb_consultas
-      WHERE owner_id = @owner
-      ORDER BY consulted_at DESC
-    `);
+  const req = p.request().input("lim", sql.Int, limit);
+  let where = "";
+  if (ownerId !== null) {
+    req.input("owner", sql.UniqueIdentifier, ownerId);
+    where = "WHERE owner_id = @owner";
+  }
+  const r = await req.query(`
+    SELECT TOP (@lim) ${SELECT_COLS}
+    FROM kbb_consultas
+    ${where}
+    ORDER BY consulted_at DESC
+  `);
   return r.recordset as KbbConsultaRow[];
 }
 

@@ -11,15 +11,15 @@ import Link from "next/link";
 import { CheckTudoClient } from "./CheckTudoClient";
 import { ChecktudoHistory } from "./ChecktudoHistory";
 import { listRecent, type ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
-import { requireUserId } from "@/lib/auth/server";
+import { requireScope } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function CheckTudoPage() {
   let rows: ChecktudoConsultaRow[] = [];
   try {
-    const ownerId = await requireUserId();
-    rows = await listRecent(ownerId, 200);
+    const { userId, master } = await requireScope();
+    rows = await listRecent(master ? null : userId, 200);
   } catch {
     rows = [];
   }

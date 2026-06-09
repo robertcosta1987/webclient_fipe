@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { listRecent } from "@/lib/db/kbbConsultas";
 import { HistoricoKbbList } from "./HistoricoKbbList";
-import { requireUserId } from "@/lib/auth/server";
+import { requireScope } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic"; // server-rendered; no static cache
 
 export default async function HistoricoKbbPage() {
-  const ownerId = await requireUserId();
-  const rows = await listRecent(ownerId, 200);
+  const { userId, master } = await requireScope();
+  const rows = await listRecent(master ? null : userId, 200);
   return (
     <section>
       <header className="flex flex-wrap items-end justify-between gap-4 mb-7">

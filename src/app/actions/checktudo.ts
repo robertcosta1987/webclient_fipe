@@ -17,6 +17,8 @@ import {
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as ct from "@/lib/db/checktudoConsultas";
 import { requireUserId } from "@/lib/auth/server";
+import { extractRecall } from "@/lib/checktudo/recall";
+import { computeRecallVerdict } from "@/lib/checktudo/recallVerdict";
 
 export type ChecktudoLookupResult =
   | {
@@ -33,6 +35,9 @@ export type ChecktudoLookupResult =
       cachedAt: string | null;
       /** ISO timestamp this consult was made (cache date, or now for fresh). */
       consultedAt: string;
+      /** Recall affected-chassi verdict (computed once, also persisted). */
+      recallAfetado: string | null;
+      recallMotivo: string | null;
       /** Row id when this lookup ended up persisted. */
       consultaId: string | null;
     }
@@ -91,6 +96,8 @@ export async function lookupPlacaChecktudo(
           fromCache: true,
           cachedAt: hit.row.consulted_at,
           consultedAt: hit.row.consulted_at,
+          recallAfetado: hit.row.recall_afetado,
+          recallMotivo: hit.row.recall_motivo,
           consultaId: hit.row.id,
         };
       }
@@ -111,6 +118,22 @@ export async function lookupPlacaChecktudo(
     return { ok: false, error: friendly };
   }
 
+  // 2b. Recall affected-chassi verdict (computed once; persisted + returned).
+  let recallAfetado: string | null = null;
+  let recallMotivo: string | null = null;
+  try {
+    const { chassi, recallText } = extractRecall(result.data);
+    if (chassi && recallText) {
+      const v = await computeRecallVerdict(chassi, recallText);
+      if (v.ok) {
+        recallAfetado = v.afetado;
+        recallMotivo = v.motivo ?? null;
+      }
+    }
+  } catch {
+    // best-effort; the consult still returns without a verdict.
+  }
+
   // 3. Persist (failure here does not fail the lookup).
   let consultaId: string | null = null;
   try {
@@ -122,6 +145,8 @@ export async function lookupPlacaChecktudo(
       queryId: result.queryId,
       upstreamLatencyMs: result.upstreamLatencyMs,
       ownerId,
+      recallAfetado,
+      recallMotivo,
     });
     consultaId = ins.id;
   } catch {
@@ -139,6 +164,8 @@ export async function lookupPlacaChecktudo(
     fromCache: false,
     cachedAt: null,
     consultedAt: new Date().toISOString(),
+    recallAfetado,
+    recallMotivo,
     consultaId,
   };
 }

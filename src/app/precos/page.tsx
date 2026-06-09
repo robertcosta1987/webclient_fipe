@@ -6,15 +6,15 @@ import Link from "next/link";
 import { PrecosClient } from "./PrecosClient";
 import { HistoricoKbbList } from "@/app/historico-kbb/HistoricoKbbList";
 import { listRecent, type KbbConsultaRow } from "@/lib/db/kbbConsultas";
-import { requireUserId } from "@/lib/auth/server";
+import { requireScope } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrecosPage() {
   let rows: KbbConsultaRow[] = [];
   try {
-    const ownerId = await requireUserId();
-    rows = await listRecent(ownerId, 200);
+    const { userId, master } = await requireScope();
+    rows = await listRecent(master ? null : userId, 200);
   } catch {
     rows = [];
   }

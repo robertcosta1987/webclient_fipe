@@ -9,6 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
 import { Plate } from "@/components/Plate";
+import { recallAfetadoLabel } from "./CheckTudoClient";
 
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -33,6 +34,7 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
   const [open, setOpen] = useState(false);
   const modelo = [row.brand, row.model].filter(Boolean).join(" ") || "Modelo não identificado";
   const when = new Date(row.consulted_at);
+  const recall = recallAfetadoLabel(row.recall_afetado);
 
   return (
     <li className="surface overflow-hidden">
@@ -52,6 +54,16 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
           <p className="text-xs text-[var(--fg-muted)]">{row.product_name ?? `Produto ${row.product_code}`}</p>
         </div>
 
+        {row.recall_afetado && (
+          <span
+            className="text-[10px] uppercase tracking-[0.1em] font-bold px-2 py-1 rounded whitespace-nowrap"
+            style={{ color: recall.color, border: `1px solid ${recall.color}` }}
+            title="Veículo Listado Afetado? (recall)"
+          >
+            Afetado: {recall.label}
+          </span>
+        )}
+
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Consultado em</p>
           <p className="text-xs font-mono text-[var(--fg)]">{DATE_FMT.format(when)}</p>
@@ -68,6 +80,12 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
             <Cell label="Latência upstream" value={row.upstream_latency_ms !== null ? `${row.upstream_latency_ms} ms` : "—"} mono />
             <Cell label="Query ID" value={row.query_id ?? "—"} mono />
             <Cell label="ID da consulta" value={row.id.slice(0, 8)} mono />
+            <div>
+              <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Veículo Listado Afetado?</dt>
+              <dd className="mt-0.5 font-semibold" style={{ color: recall.color }} title={row.recall_motivo ?? undefined}>
+                {recall.label}
+              </dd>
+            </div>
           </dl>
           <div className="flex sm:flex-col gap-2 sm:items-end">
             <Link

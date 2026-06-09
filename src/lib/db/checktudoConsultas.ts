@@ -26,11 +26,14 @@ export type ChecktudoConsultaRow = {
   upstream_latency_ms: number | null;
   payload: string;
   consulted_at: string;
+  recall_afetado: string | null;
+  recall_motivo: string | null;
 };
 
 const SELECT_COLS = [
   "id", "placa", "product_code", "product_name", "brand", "model",
   "model_year", "chassi", "query_id", "upstream_latency_ms", "payload", "consulted_at",
+  "recall_afetado", "recall_motivo",
 ].join(", ");
 
 const CACHE_TTL_DAYS = 90;
@@ -74,18 +77,22 @@ export async function getById(id: string, ownerId: string): Promise<(ChecktudoCo
   return { ...row, parsed: safeParse(row.payload) };
 }
 
-/** Most recent N consultations for this owner, newest first. */
-export async function listRecent(ownerId: string, limit = 100): Promise<ChecktudoConsultaRow[]> {
+/** Most recent N consultations, newest first. `ownerId = null` (master) returns
+ *  all owners' consultations. */
+export async function listRecent(ownerId: string | null, limit = 100): Promise<ChecktudoConsultaRow[]> {
   const p = await getPool();
-  const r = await p.request()
-    .input("owner", sql.UniqueIdentifier, ownerId)
-    .input("lim", sql.Int, limit)
-    .query(`
-      SELECT TOP (@lim) ${SELECT_COLS}
-      FROM checktudo_consultas
-      WHERE owner_id = @owner
-      ORDER BY consulted_at DESC
-    `);
+  const req = p.request().input("lim", sql.Int, limit);
+  let where = "";
+  if (ownerId !== null) {
+    req.input("owner", sql.UniqueIdentifier, ownerId);
+    where = "WHERE owner_id = @owner";
+  }
+  const r = await req.query(`
+    SELECT TOP (@lim) ${SELECT_COLS}
+    FROM checktudo_consultas
+    ${where}
+    ORDER BY consulted_at DESC
+  `);
   return r.recordset as ChecktudoConsultaRow[];
 }
 
@@ -97,6 +104,8 @@ export type InsertInput = {
   queryId: string | null;
   upstreamLatencyMs: number | null;
   ownerId: string;
+  recallAfetado?: string | null;
+  recallMotivo?: string | null;
 };
 
 export async function insert(input: InsertInput): Promise<{ id: string }> {
@@ -116,18 +125,30 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
     .input("query_id", sql.NVarChar(60), trunc(queryId, 60))
     .input("upstream_latency_ms", sql.Int, intOrNull(upstreamLatencyMs))
     .input("payload", sql.NVarChar(sql.MAX), JSON.stringify(data))
+    .input("recall_afetado", sql.NVarChar(20), trunc(input.recallAfetado, 20))
+    .input("recall_motivo", sql.NVarChar(400), trunc(input.recallMotivo, 400))
     .query(`
       INSERT INTO checktudo_consultas (
         placa, owner_id, product_code, product_name, brand, model, model_year, chassi,
-        query_id, upstream_latency_ms, payload
+        query_id, upstream_latency_ms, payload, recall_afetado, recall_motivo
       )
       OUTPUT inserted.id
       VALUES (
         @placa, @owner, @product_code, @product_name, @brand, @model, @model_year, @chassi,
-        @query_id, @upstream_latency_ms, @payload
+        @query_id, @upstream_latency_ms, @payload, @recall_afetado, @recall_motivo
       );
     `);
   return { id: r.recordset[0].id as string };
+}
+
+/** Persist a computed recall verdict onto an existing consult (backfill/lazy). */
+export async function setRecallVerdict(id: string, afetado: string | null, motivo: string | null): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("id", sql.UniqueIdentifier, id)
+    .input("a", sql.NVarChar(20), trunc(afetado, 20))
+    .input("m", sql.NVarChar(400), trunc(motivo, 400))
+    .query(`UPDATE checktudo_consultas SET recall_afetado = @a, recall_motivo = @m WHERE id = @id`);
 }
 
 // ── Summary extraction ──────────────────────────────────────────────────────
