@@ -28,12 +28,14 @@ export type ChecktudoConsultaRow = {
   consulted_at: string;
   recall_afetado: string | null;
   recall_motivo: string | null;
+  parecer_veredito: string | null;
+  parecer_motivo: string | null;
 };
 
 const SELECT_COLS = [
   "id", "placa", "product_code", "product_name", "brand", "model",
   "model_year", "chassi", "query_id", "upstream_latency_ms", "payload", "consulted_at",
-  "recall_afetado", "recall_motivo",
+  "recall_afetado", "recall_motivo", "parecer_veredito", "parecer_motivo",
 ].join(", ");
 
 export type CachedHit = {
@@ -108,6 +110,8 @@ export type InsertInput = {
   ownerId: string;
   recallAfetado?: string | null;
   recallMotivo?: string | null;
+  parecerVeredito?: string | null;
+  parecerMotivo?: string | null;
 };
 
 export async function insert(input: InsertInput): Promise<{ id: string }> {
@@ -129,15 +133,19 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
     .input("payload", sql.NVarChar(sql.MAX), JSON.stringify(data))
     .input("recall_afetado", sql.NVarChar(20), trunc(input.recallAfetado, 20))
     .input("recall_motivo", sql.NVarChar(400), trunc(input.recallMotivo, 400))
+    .input("parecer_veredito", sql.NVarChar(20), trunc(input.parecerVeredito, 20))
+    .input("parecer_motivo", sql.NVarChar(500), trunc(input.parecerMotivo, 500))
     .query(`
       INSERT INTO checktudo_consultas (
         placa, owner_id, product_code, product_name, brand, model, model_year, chassi,
-        query_id, upstream_latency_ms, payload, recall_afetado, recall_motivo
+        query_id, upstream_latency_ms, payload, recall_afetado, recall_motivo,
+        parecer_veredito, parecer_motivo
       )
       OUTPUT inserted.id
       VALUES (
         @placa, @owner, @product_code, @product_name, @brand, @model, @model_year, @chassi,
-        @query_id, @upstream_latency_ms, @payload, @recall_afetado, @recall_motivo
+        @query_id, @upstream_latency_ms, @payload, @recall_afetado, @recall_motivo,
+        @parecer_veredito, @parecer_motivo
       );
     `);
   return { id: r.recordset[0].id as string };
@@ -151,6 +159,16 @@ export async function setRecallVerdict(id: string, afetado: string | null, motiv
     .input("a", sql.NVarChar(20), trunc(afetado, 20))
     .input("m", sql.NVarChar(400), trunc(motivo, 400))
     .query(`UPDATE checktudo_consultas SET recall_afetado = @a, recall_motivo = @m WHERE id = @id`);
+}
+
+/** Persist a computed Parecer de Compra verdict onto an existing consult. */
+export async function setParecer(id: string, veredito: string | null, motivo: string | null): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("id", sql.UniqueIdentifier, id)
+    .input("v", sql.NVarChar(20), trunc(veredito, 20))
+    .input("m", sql.NVarChar(500), trunc(motivo, 500))
+    .query(`UPDATE checktudo_consultas SET parecer_veredito = @v, parecer_motivo = @m WHERE id = @id`);
 }
 
 // ── Summary extraction ──────────────────────────────────────────────────────

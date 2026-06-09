@@ -19,6 +19,8 @@ import * as ct from "@/lib/db/checktudoConsultas";
 import { requireScope } from "@/lib/auth/server";
 import { extractRecall } from "@/lib/checktudo/recall";
 import { computeRecallVerdict } from "@/lib/checktudo/recallVerdict";
+import { extractParecerSignals, hasParecerSignals } from "@/lib/checktudo/parecer";
+import { computeParecer } from "@/lib/checktudo/parecerVerdict";
 
 export type ChecktudoLookupResult =
   | {
@@ -38,6 +40,9 @@ export type ChecktudoLookupResult =
       /** Recall affected-chassi verdict (computed once, also persisted). */
       recallAfetado: string | null;
       recallMotivo: string | null;
+      /** Parecer de Compra — buy/risk verdict (computed once, also persisted). */
+      parecerVeredito: string | null;
+      parecerMotivo: string | null;
       /** Row id when this lookup ended up persisted. */
       consultaId: string | null;
     }
@@ -99,6 +104,8 @@ export async function lookupPlacaChecktudo(
           consultedAt: hit.row.consulted_at,
           recallAfetado: hit.row.recall_afetado,
           recallMotivo: hit.row.recall_motivo,
+          parecerVeredito: hit.row.parecer_veredito,
+          parecerMotivo: hit.row.parecer_motivo,
           consultaId: hit.row.id,
         };
       }
@@ -135,6 +142,23 @@ export async function lookupPlacaChecktudo(
     // best-effort; the consult still returns without a verdict.
   }
 
+  // 2c. Parecer de Compra — synthesize a buy/risk verdict from compact signals
+  //     (incl. the recall verdict). Computed once; persisted + returned.
+  let parecerVeredito: string | null = null;
+  let parecerMotivo: string | null = null;
+  try {
+    const signals = extractParecerSignals(result.data, { afetado: recallAfetado, motivo: recallMotivo });
+    if (hasParecerSignals(signals)) {
+      const v = await computeParecer(signals);
+      if (v.ok) {
+        parecerVeredito = v.veredito;
+        parecerMotivo = v.motivo ?? null;
+      }
+    }
+  } catch {
+    // best-effort.
+  }
+
   // 3. Persist (failure here does not fail the lookup).
   let consultaId: string | null = null;
   try {
@@ -148,6 +172,8 @@ export async function lookupPlacaChecktudo(
       ownerId,
       recallAfetado,
       recallMotivo,
+      parecerVeredito,
+      parecerMotivo,
     });
     consultaId = ins.id;
   } catch {
@@ -167,6 +193,8 @@ export async function lookupPlacaChecktudo(
     consultedAt: new Date().toISOString(),
     recallAfetado,
     recallMotivo,
+    parecerVeredito,
+    parecerMotivo,
     consultaId,
   };
 }

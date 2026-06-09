@@ -150,6 +150,8 @@ export function ChecktudoReport({
     <div className="space-y-6">
       {r.fromCache && <CacheBadge cachedAt={r.cachedAt} pending={pending} onForceRefresh={onForceRefresh} />}
 
+      {r.parecerVeredito && <ParecerBanner veredito={r.parecerVeredito} motivo={r.parecerMotivo} />}
+
       <header className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
         <Plate placa={r.placa} size="lg" />
         <Field label="Produto" value={`${r.product.name} (${r.product.code})`} />
@@ -227,6 +229,29 @@ export function recallAfetadoLabel(afetado: string | null): { label: string; col
   if (afetado === "nao") return { label: "NÃO", color: "var(--success)" };
   if (afetado === "indeterminado") return { label: "Indeterminado", color: "var(--fg-muted)" };
   return { label: "—", color: "var(--fg-muted)" };
+}
+
+// ── Parecer de Compra — buy/risk verdict (precomputed by the action) ────────
+export function parecerLabel(v: string | null): { label: string; color: string; bg: string } {
+  if (v === "comprar") return { label: "COMPRAR", color: "#15803d", bg: "rgba(34,197,94,0.12)" };
+  if (v === "evitar") return { label: "EVITAR", color: "#b91c1c", bg: "rgba(220,38,38,0.12)" };
+  if (v === "atencao") return { label: "ATENÇÃO", color: "#b45309", bg: "rgba(245,158,11,0.14)" };
+  return { label: "—", color: "var(--fg-muted)", bg: "transparent" };
+}
+
+function ParecerBanner({ veredito, motivo }: { veredito: string; motivo: string | null }) {
+  const { label, color, bg } = parecerLabel(veredito);
+  return (
+    <div
+      className="surface flex flex-wrap items-center gap-x-4 gap-y-1 p-4"
+      style={{ background: bg, borderColor: color }}
+    >
+      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Parecer de Compra</span>
+      <span className="font-display text-xl leading-none" style={{ color }}>{label}</span>
+      {motivo && <span className="text-sm text-[var(--fg)] flex-1 min-w-[12rem]">{motivo}</span>}
+      <span className="text-[10px] text-[var(--fg-faint)] w-full">Análise por IA a partir dos sinais da consulta — não substitui vistoria.</span>
+    </div>
+  );
 }
 
 function RecallAffectedField({ afetado, motivo }: { afetado: string | null; motivo: string | null }) {

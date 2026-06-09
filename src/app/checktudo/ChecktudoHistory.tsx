@@ -9,7 +9,7 @@ import { useState } from "react";
 import type { ChecktudoConsultaRow } from "@/lib/db/checktudoConsultas";
 import type { ChecktudoLookupResult } from "@/app/actions/checktudo";
 import { Plate } from "@/components/Plate";
-import { ChecktudoReport } from "./CheckTudoClient";
+import { ChecktudoReport, parecerLabel } from "./CheckTudoClient";
 
 type OkResult = Extract<ChecktudoLookupResult, { ok: true }>;
 
@@ -30,6 +30,8 @@ function rowToResult(row: ChecktudoConsultaRow): OkResult {
     consultedAt: row.consulted_at,
     recallAfetado: row.recall_afetado,
     recallMotivo: row.recall_motivo,
+    parecerVeredito: row.parecer_veredito,
+    parecerMotivo: row.parecer_motivo,
     consultaId: row.id,
   };
 }
@@ -58,6 +60,7 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
   const [full, setFull] = useState(false);
   const modelo = [row.brand, row.model].filter(Boolean).join(" ") || "Modelo não identificado";
   const when = new Date(row.consulted_at);
+  const parecer = parecerLabel(row.parecer_veredito);
 
   return (
     <li className="surface overflow-hidden">
@@ -76,6 +79,16 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
           </p>
           <p className="text-xs text-[var(--fg-muted)]">{row.product_name ?? `Produto ${row.product_code}`}</p>
         </div>
+
+        {row.parecer_veredito && (
+          <span
+            className="text-[11px] uppercase tracking-[0.08em] font-bold px-2.5 py-1 rounded whitespace-nowrap"
+            style={{ color: parecer.color, background: parecer.bg, border: `1px solid ${parecer.color}` }}
+            title={row.parecer_motivo ?? "Parecer de Compra"}
+          >
+            {parecer.label}
+          </span>
+        )}
 
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)]">Consultado em</p>
