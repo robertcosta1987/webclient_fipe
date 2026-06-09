@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 
 const nav = [
-  { href: "/buscar", label: "Infocar" },
+  { href: "/infocar", label: "Infocar" },
   { href: "/precos", label: "Tabela KBB" },
   { href: "/checktudo", label: "CheckTudo" },
 ];
