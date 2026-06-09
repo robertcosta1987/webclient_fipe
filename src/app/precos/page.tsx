@@ -61,7 +61,7 @@ export default async function PrecosPage() {
             </p>
           </div>
           <Link href="/checktudo" className="btn-ghost text-sm">
-            Checa Tudo →
+            CheckTudo →
           </Link>
         </header>
         <HistoricoKbbList rows={rows} />

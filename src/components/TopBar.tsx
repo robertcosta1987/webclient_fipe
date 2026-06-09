@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 
 const nav = [
+  { href: "/buscar", label: "Infocar" },
   { href: "/precos", label: "Tabela KBB" },
-  { href: "/checktudo", label: "Checa Tudo" },
+  { href: "/checktudo", label: "CheckTudo" },
 ];
 
 export function TopBar({ user }: { user?: { email: string; role: string } | null }) {
