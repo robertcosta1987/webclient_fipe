@@ -10,7 +10,8 @@
 // into "Outros dados". This satisfies "selectable product + tailored layout"
 // while tolerating whatever fields a given product returns.
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { lookupPlacaChecktudo, type ChecktudoLookupResult } from "@/app/actions/checktudo";
@@ -232,14 +233,56 @@ function RecallAffectedField({ afetado, motivo }: { afetado: string | null; moti
   return (
     <div>
       <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Chassi com Recall?</dt>
-      <dd
-        className={`text-sm mt-0.5 font-semibold ${tip ? "cursor-help underline decoration-dotted underline-offset-4" : ""}`}
-        style={{ color }}
-        title={tip}
-      >
-        {label}
+      <dd className="text-sm mt-0.5 font-semibold" style={{ color }}>
+        {tip ? (
+          <HoverInfo text={tip}>
+            <span className="cursor-help underline decoration-dotted underline-offset-4">{label}</span>
+          </HoverInfo>
+        ) : (
+          label
+        )}
       </dd>
     </div>
+  );
+}
+
+// Styled hover popover, portal'd to <body> with fixed positioning so it is
+// never clipped by an `overflow-hidden` ancestor (e.g. the history card).
+function HoverInfo({ text, children }: { text: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  const show = useCallback(() => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, left: r.left });
+  }, []);
+  const hide = useCallback(() => setPos(null), []);
+
+  return (
+    <span
+      ref={ref}
+      className="relative inline-block"
+      tabIndex={0}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+    >
+      {children}
+      {pos &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, maxWidth: 320 }}
+            className="block px-3 py-2 rounded-md text-[11.5px] font-normal normal-case leading-snug
+                       bg-[var(--bg-elev-2)] text-[var(--fg)] border border-[var(--border)]
+                       shadow-[0_8px_28px_-8px_rgba(0,0,0,0.45)]"
+          >
+            {text}
+          </span>,
+          document.body,
+        )}
+    </span>
   );
 }
 
