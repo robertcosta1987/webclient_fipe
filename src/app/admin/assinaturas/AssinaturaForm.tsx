@@ -4,43 +4,37 @@ import { useState, useTransition } from "react";
 import { createSubscription, type CreateSubResult } from "@/app/actions/provisioning";
 import { CHECKTUDO_PRODUCTS } from "@/lib/checktudo/types";
 
-type PlanType = "consultas" | "cash";
-type Sel = { checked: boolean; qty: string };
+type PlanType = "consultas" | "cash" | "ondemand";
 
 export function AssinaturaForm() {
   const [nome, setNome] = useState("");
   const [empresa, setEmpresa] = useState("");
   const [email, setEmail] = useState("");
   const [planType, setPlanType] = useState<PlanType>("consultas");
-  const [cashValue, setCashValue] = useState("");
-  const [sel, setSel] = useState<Record<number, Sel>>(
-    () => Object.fromEntries(CHECKTUDO_PRODUCTS.map((p) => [p.code, { checked: false, qty: "" }])),
+  const [value, setValue] = useState(""); // queries (consultas) | R$ (cash/ondemand)
+  const [selected, setSelected] = useState<Record<number, boolean>>(
+    () => Object.fromEntries(CHECKTUDO_PRODUCTS.map((p) => [p.code, false])),
   );
   const [result, setResult] = useState<CreateSubResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
 
   function toggle(code: number) {
-    setSel((s) => ({ ...s, [code]: { ...s[code], checked: !s[code].checked } }));
-  }
-  function setQty(code: number, qty: string) {
-    setSel((s) => ({ ...s, [code]: { ...s[code], qty } }));
+    setSelected((s) => ({ ...s, [code]: !s[code] }));
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setCopied(false);
-    const products = CHECKTUDO_PRODUCTS.filter((p) => sel[p.code].checked).map((p) => ({
-      code: p.code,
-      qty: planType === "consultas" ? Number(sel[p.code].qty || 0) : null,
-    }));
+    const products = CHECKTUDO_PRODUCTS.filter((p) => selected[p.code]).map((p) => p.code);
     start(async () => {
       const res = await createSubscription({
         nome,
         empresa,
         email,
         planType,
-        cashValueBrl: planType === "cash" ? Number(cashValue || 0) : null,
+        queryLimit: planType === "consultas" ? Number(value || 0) : null,
+        cashValueBrl: planType === "consultas" ? null : value === "" ? null : Number(value),
         products,
       });
       setResult(res);
@@ -48,8 +42,8 @@ export function AssinaturaForm() {
   }
 
   function reset() {
-    setNome(""); setEmpresa(""); setEmail(""); setPlanType("consultas"); setCashValue("");
-    setSel(Object.fromEntries(CHECKTUDO_PRODUCTS.map((p) => [p.code, { checked: false, qty: "" }])));
+    setNome(""); setEmpresa(""); setEmail(""); setPlanType("consultas"); setValue("");
+    setSelected(Object.fromEntries(CHECKTUDO_PRODUCTS.map((p) => [p.code, false])));
     setResult(null); setCopied(false);
   }
 
@@ -58,7 +52,6 @@ export function AssinaturaForm() {
     try { await navigator.clipboard.writeText(result.tempPassword); setCopied(true); } catch { setCopied(false); }
   }
 
-  // Success view — show the one-time temp password.
   if (result?.ok) {
     return (
       <div className="surface p-5 space-y-4 max-w-xl">
@@ -72,6 +65,7 @@ export function AssinaturaForm() {
           <Field label="E-mail (login)" value={result.email} mono />
           <Field label="Plano" value={result.planSummary} />
         </dl>
+
         <div className="surface p-3" style={{ borderColor: "var(--accent)" }}>
           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted)] mb-1">Senha temporária (entregue ao cliente)</p>
           <div className="flex items-center gap-3">
@@ -82,12 +76,19 @@ export function AssinaturaForm() {
             O usuário <strong>deverá trocar a senha no primeiro acesso</strong>. Esta senha não será exibida novamente.
           </p>
         </div>
+
+        <p className="text-[12px]" style={{ color: result.apim.created ? "var(--success)" : "var(--fg-muted)" }}>
+          {result.apim.created
+            ? "APIM: assinatura criada no API Management ✓"
+            : `APIM: não criada — ${result.apim.reason ?? "indisponível"} (assinatura criada no app).`}
+        </p>
+
         <button type="button" onClick={reset} className="btn-primary text-sm">+ Nova assinatura</button>
       </div>
     );
   }
 
-  const anyChecked = CHECKTUDO_PRODUCTS.some((p) => sel[p.code].checked);
+  const anyChecked = CHECKTUDO_PRODUCTS.some((p) => selected[p.code]);
 
   return (
     <form onSubmit={submit} className="space-y-5 max-w-2xl">
@@ -107,43 +108,39 @@ export function AssinaturaForm() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="auth-field">
             <label htmlFor="tipo">Tipo de consumo *</label>
-            <select id="tipo" value={planType} onChange={(e) => setPlanType(e.target.value as PlanType)} className="input">
-              <option value="consultas">Quantidade de consultas</option>
-              <option value="cash">Valor em reais (R$)</option>
+            <select id="tipo" value={planType} onChange={(e) => { setPlanType(e.target.value as PlanType); setValue(""); }} className="input">
+              <option value="consultas">Quantidade de Consultas</option>
+              <option value="cash">Valor em Reais</option>
+              <option value="ondemand">On-Demand / Em aberto</option>
             </select>
           </div>
+
+          {planType === "consultas" && (
+            <Input label="Quantidade de consultas (limite total) *" value={value} onChange={setValue} type="number" placeholder="20" />
+          )}
           {planType === "cash" && (
-            <Input label="Valor (R$) *" value={cashValue} onChange={setCashValue} type="number" placeholder="500.00" />
+            <Input label="Valor (R$) *" value={value} onChange={setValue} type="number" placeholder="500.00" />
+          )}
+          {planType === "ondemand" && (
+            <Input label="Teto de uso (R$) — opcional" value={value} onChange={setValue} type="number" placeholder="(opcional) ex.: 1000.00" />
           )}
         </div>
         <p className="text-[12px] text-[var(--fg-muted)] mt-2">
-          {planType === "consultas"
-            ? "O cliente recebe um número de consultas por produto. Consultas em cache não descontam."
-            : "O cliente pode usar os produtos marcados até atingir o valor. Consultas em cache não descontam."}
+          {planType === "consultas" && "Limite rígido: o total de consultas ao vivo não pode passar deste número. Consultas em cache não descontam."}
+          {planType === "cash" && "Crédito pré-pago: as consultas ao vivo descontam até atingir o valor. Consultas em cache não descontam."}
+          {planType === "ondemand" && "Em aberto, faturado no fim do ciclo. O teto em R$ é opcional — se preenchido, bloqueia ao ser atingido para evitar gasto excessivo. Consultas em cache não descontam."}
         </p>
       </fieldset>
 
       <fieldset className="erp-group">
-        <legend className="erp-legend">Produtos {planType === "consultas" ? "e quantidades" : "liberados"}</legend>
+        <legend className="erp-legend">Produtos contratados</legend>
         <div className="grid gap-2">
           {CHECKTUDO_PRODUCTS.map((p) => (
-            <div key={p.code} className="flex items-center gap-3 flex-wrap">
-              <label className="flex items-center gap-2 text-sm text-[var(--fg)] min-w-[18rem]">
-                <input type="checkbox" checked={sel[p.code].checked} onChange={() => toggle(p.code)} />
-                <span className="text-[var(--fg-strong)]">{p.name}</span>
-                <span className="text-[var(--fg-faint)] font-mono text-xs">({p.code})</span>
-              </label>
-              {planType === "consultas" && sel[p.code].checked && (
-                <label className="flex items-center gap-2 text-xs text-[var(--fg-muted)]">
-                  Qtd.
-                  <input
-                    type="number" min={1} value={sel[p.code].qty}
-                    onChange={(e) => setQty(p.code, e.target.value)}
-                    className="input" style={{ width: 96 }} placeholder="20"
-                  />
-                </label>
-              )}
-            </div>
+            <label key={p.code} className="flex items-center gap-2 text-sm text-[var(--fg)]">
+              <input type="checkbox" checked={selected[p.code]} onChange={() => toggle(p.code)} />
+              <span className="text-[var(--fg-strong)]">{p.name}</span>
+              <span className="text-[var(--fg-faint)] font-mono text-xs">({p.code})</span>
+            </label>
           ))}
         </div>
         {!anyChecked && <p className="text-[12px] text-[var(--fg-muted)] mt-2">Marque ao menos um produto.</p>}

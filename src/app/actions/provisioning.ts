@@ -1,9 +1,9 @@
 "use server";
 
 // actions/provisioning.ts — admin "Adicionar Assinatura": create a customer +
-// subscription + login user in one step. Returns a one-time temporary password
-// for the admin to hand to the customer; the user is forced to change it on
-// first login.
+// subscription + login user in one step, plus a matching APIM subscription.
+// Returns a one-time temporary password for the admin to hand to the customer;
+// the user is forced to change it on first login.
 
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "@/lib/auth/password";
@@ -11,21 +11,33 @@ import { getSession } from "@/lib/auth/server";
 import * as users from "@/lib/db/users";
 import * as subs from "@/lib/db/subscriptions";
 import * as customers from "@/lib/db/customers";
+import { createApimSubscription } from "@/lib/apim";
 import { isValidProduct, productName } from "@/lib/checktudo/types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type PlanType = "consultas" | "cash" | "ondemand";
 
 export type CreateSubInput = {
   nome: string;
   empresa: string;
   email: string;
-  planType: "consultas" | "cash";
-  cashValueBrl?: number | null;
-  products: { code: number; qty?: number | null }[];
+  planType: PlanType;
+  queryLimit?: number | null;    // consultas — total query hard cap
+  cashValueBrl?: number | null;  // cash — mandatory budget; ondemand — OPTIONAL cap
+  products: number[];            // contracted product codes
 };
 
 export type CreateSubResult =
-  | { ok: true; email: string; tempPassword: string; subscriptionName: string; subKey: string; planSummary: string }
+  | {
+      ok: true;
+      email: string;
+      tempPassword: string;
+      subscriptionName: string;
+      subKey: string;
+      planSummary: string;
+      apim: { created: boolean; reason?: string };
+    }
   | { ok: false; error: string };
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -53,21 +65,32 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
   if (!nome) return { ok: false, error: "Informe o nome." };
   if (!empresa) return { ok: false, error: "Informe a empresa." };
   if (!EMAIL_RE.test(email)) return { ok: false, error: "Informe um e-mail válido." };
-  if (input.planType !== "consultas" && input.planType !== "cash") return { ok: false, error: "Selecione o tipo de consumo." };
 
-  const products = (input.products ?? []).filter((p) => isValidProduct(p.code));
+  const planType = input.planType;
+  if (planType !== "consultas" && planType !== "cash" && planType !== "ondemand") {
+    return { ok: false, error: "Selecione o tipo de consumo." };
+  }
+
+  const products = (input.products ?? []).filter((c) => isValidProduct(c));
   if (products.length === 0) return { ok: false, error: "Selecione ao menos um produto." };
 
-  if (input.planType === "consultas") {
-    for (const p of products) {
-      const q = Number(p.qty);
-      if (!Number.isInteger(q) || q < 1) return { ok: false, error: `Informe a quantidade de consultas para ${productName(p.code)}.` };
-    }
-  }
+  // Per-plan value validation.
+  let queryLimit: number | null = null;
   let spendLimit: number | null = null;
-  if (input.planType === "cash") {
+  if (planType === "consultas") {
+    queryLimit = Number(input.queryLimit);
+    if (!Number.isInteger(queryLimit) || queryLimit < 1) return { ok: false, error: "Informe a quantidade de consultas (limite) — número inteiro maior que zero." };
+  } else if (planType === "cash") {
     spendLimit = Number(input.cashValueBrl);
     if (!Number.isFinite(spendLimit) || spendLimit <= 0) return { ok: false, error: "Informe um valor em reais maior que zero." };
+  } else {
+    // ondemand — cap is OPTIONAL.
+    if (input.cashValueBrl === null || input.cashValueBrl === undefined || `${input.cashValueBrl}` === "") {
+      spendLimit = null;
+    } else {
+      spendLimit = Number(input.cashValueBrl);
+      if (!Number.isFinite(spendLimit) || spendLimit <= 0) return { ok: false, error: "O teto de uso (opcional) deve ser um valor em reais maior que zero, ou deixe em branco." };
+    }
   }
 
   if (await users.getUserByEmail(email)) return { ok: false, error: "Já existe uma conta com este e-mail." };
@@ -77,7 +100,7 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
 
   let subscriptionId: string;
   try {
-    const sub = await subs.createSubscription({ name: empresa, subKey, planType: input.planType, spendLimitBrl: spendLimit });
+    const sub = await subs.createSubscription({ name: empresa, subKey, planType, queryLimit, spendLimitBrl: spendLimit });
     subscriptionId = sub.id;
   } catch {
     return { ok: false, error: "Não foi possível criar a assinatura. Tente novamente." };
@@ -102,22 +125,32 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
     return { ok: false, error: "Não foi possível criar o usuário. Tente novamente." };
   }
 
-  // CRM registry + product entitlements (best-effort after the user exists).
+  // CRM registry + contracted products (best-effort after the user exists).
   try {
     await customers.createCustomer({ name: nome, company: empresa, email, subscriptionId, userId });
   } catch { /* CRM row is non-critical; continue */ }
 
-  for (const p of products) {
-    const granted = input.planType === "consultas" ? Number(p.qty) : null;
+  for (const code of products) {
     try {
-      await subs.addQuota({ subscriptionId, api: "checktudo", productCode: p.code, granted });
-    } catch { /* keep going; admin can re-run if a product fails */ }
+      await subs.addQuota({ subscriptionId, api: "checktudo", productCode: code, granted: null });
+    } catch { /* keep going */ }
   }
 
-  const planSummary =
-    input.planType === "consultas"
-      ? `Consultas: ${products.map((p) => `${productName(p.code)} ×${Number(p.qty)}`).join(", ")}`
-      : `Valor: ${BRL.format(spendLimit!)} · Produtos: ${products.map((p) => productName(p.code)).join(", ")}`;
+  // Create the matching APIM subscription (best-effort; gated on Azure creds).
+  let apim = { created: false, reason: "Não configurado." } as { created: boolean; reason?: string };
+  try {
+    apim = await createApimSubscription({ id: subKey, displayName: empresa });
+  } catch (e) {
+    apim = { created: false, reason: `Falha: ${(e as Error).message}` };
+  }
 
-  return { ok: true, email, tempPassword: pw, subscriptionName: empresa, subKey, planSummary };
+  const productList = products.map((c) => productName(c)).join(", ");
+  const planSummary =
+    planType === "consultas"
+      ? `Quantidade de consultas: ${queryLimit} (limite total) · Produtos: ${productList}`
+      : planType === "cash"
+        ? `Valor em reais: ${BRL.format(spendLimit!)} · Produtos: ${productList}`
+        : `On-Demand / Em aberto${spendLimit !== null ? ` · teto ${BRL.format(spendLimit)}` : " · sem teto"} · Produtos: ${productList}`;
+
+  return { ok: true, email, tempPassword: pw, subscriptionName: empresa, subKey, planSummary, apim };
 }

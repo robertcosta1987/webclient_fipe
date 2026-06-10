@@ -14,25 +14,29 @@ export type SubscriptionRow = {
   created_at: string;
 };
 
-export type PlanType = "consultas" | "cash";
+// 'consultas' = pooled query-count cap; 'cash' = prepaid R$ budget;
+// 'ondemand' = open-ended (billed end of cycle) with an OPTIONAL R$ cap.
+export type PlanType = "consultas" | "cash" | "ondemand";
 
 // ── Provisioning ──────────────────────────────────────────────────────────────
 export async function createSubscription(input: {
   name: string;
   subKey: string;
   planType: PlanType;
-  spendLimitBrl: number | null;
+  queryLimit: number | null;     // consultas
+  spendLimitBrl: number | null;  // cash (mandatory) / ondemand (optional)
 }): Promise<{ id: string }> {
   const p = await getPool();
   const r = await p.request()
     .input("n", sql.NVarChar(120), input.name)
     .input("k", sql.NVarChar(60), input.subKey)
     .input("pt", sql.NVarChar(20), input.planType)
+    .input("ql", sql.Int, input.queryLimit)
     .input("lim", sql.Decimal(12, 2), input.spendLimitBrl)
     .query(`
-      INSERT INTO subscriptions (name, sub_key, status, plan_type, spend_limit_brl)
+      INSERT INTO subscriptions (name, sub_key, status, plan_type, query_limit, spend_limit_brl)
       OUTPUT inserted.id
-      VALUES (@n, @k, 'active', @pt, @lim);
+      VALUES (@n, @k, 'active', @pt, @ql, @lim);
     `);
   return { id: r.recordset[0].id as string };
 }
@@ -101,25 +105,7 @@ export async function reserveConsult(input: {
   if (!input.planType) return { ok: true };
   const p = await getPool();
 
-  if (input.planType === "consultas") {
-    const r = await p.request()
-      .input("s", sql.UniqueIdentifier, input.subscriptionId)
-      .input("a", sql.NVarChar(40), input.api)
-      .input("c", sql.SmallInt, input.productCode)
-      .query(`UPDATE subscription_quotas SET used = used + 1
-              WHERE subscription_id=@s AND api=@a AND product_code=@c AND granted IS NOT NULL AND used < granted;`);
-    if ((r.rowsAffected[0] ?? 0) === 1) return { ok: true };
-    // Distinguish "not contracted" from "limit reached".
-    const ex = await p.request()
-      .input("s", sql.UniqueIdentifier, input.subscriptionId)
-      .input("a", sql.NVarChar(40), input.api)
-      .input("c", sql.SmallInt, input.productCode)
-      .query(`SELECT TOP 1 granted FROM subscription_quotas WHERE subscription_id=@s AND api=@a AND product_code=@c`);
-    if (ex.recordset.length === 0) return { ok: false, error: "Produto não contratado nesta assinatura." };
-    return { ok: false, error: "Limite de consultas atingido para este produto." };
-  }
-
-  // cash
+  // Product must be contracted (in the allowed set) for every plan.
   const ex = await p.request()
     .input("s", sql.UniqueIdentifier, input.subscriptionId)
     .input("a", sql.NVarChar(40), input.api)
@@ -127,6 +113,17 @@ export async function reserveConsult(input: {
     .query(`SELECT TOP 1 1 AS ok FROM subscription_quotas WHERE subscription_id=@s AND api=@a AND product_code=@c`);
   if (ex.recordset.length === 0) return { ok: false, error: "Produto não contratado nesta assinatura." };
 
+  if (input.planType === "consultas") {
+    // Pooled hard cap on total queries.
+    const r = await p.request()
+      .input("s", sql.UniqueIdentifier, input.subscriptionId)
+      .query(`UPDATE subscriptions SET query_used = query_used + 1
+              WHERE id=@s AND query_limit IS NOT NULL AND query_used < query_limit;`);
+    if ((r.rowsAffected[0] ?? 0) === 1) return { ok: true };
+    return { ok: false, error: "Limite de consultas da assinatura atingido." };
+  }
+
+  // cash (mandatory cap) / ondemand (optional cap — NULL = no cap, never blocks).
   const price = input.price ?? 0;
   const r = await p.request()
     .input("s", sql.UniqueIdentifier, input.subscriptionId)
@@ -134,7 +131,7 @@ export async function reserveConsult(input: {
     .query(`UPDATE subscriptions SET spent_brl = spent_brl + @price
             WHERE id=@s AND (spend_limit_brl IS NULL OR spent_brl + @price <= spend_limit_brl);`);
   if ((r.rowsAffected[0] ?? 0) === 1) return { ok: true };
-  return { ok: false, error: "Orçamento da assinatura esgotado para esta consulta." };
+  return { ok: false, error: "Limite de gasto da assinatura atingido para esta consulta." };
 }
 
 /** Reverse a reservation when the live call fails (so a failed call costs nothing). */
@@ -150,10 +147,7 @@ export async function refundConsult(input: {
   if (input.planType === "consultas") {
     await p.request()
       .input("s", sql.UniqueIdentifier, input.subscriptionId)
-      .input("a", sql.NVarChar(40), input.api)
-      .input("c", sql.SmallInt, input.productCode)
-      .query(`UPDATE subscription_quotas SET used = used - 1
-              WHERE subscription_id=@s AND api=@a AND product_code=@c AND used > 0;`);
+      .query(`UPDATE subscriptions SET query_used = query_used - 1 WHERE id=@s AND query_used > 0;`);
   } else {
     await p.request()
       .input("s", sql.UniqueIdentifier, input.subscriptionId)
