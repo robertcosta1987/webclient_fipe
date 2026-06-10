@@ -16,6 +16,7 @@ import {
 } from "@/lib/checktudo/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import * as ct from "@/lib/db/checktudoConsultas";
+import * as subs from "@/lib/db/subscriptions";
 import { requireScope } from "@/lib/auth/server";
 import { extractRecall } from "@/lib/checktudo/recall";
 import { computeRecallVerdict } from "@/lib/checktudo/recallVerdict";
@@ -178,6 +179,21 @@ export async function lookupPlacaChecktudo(
     consultaId = ins.id;
   } catch {
     // ignore — already have a result; history just misses this row.
+  }
+
+  // Meter this LIVE consult against the user's subscription (billable). Cache
+  // hits return earlier and are never counted. Best-effort: metering must never
+  // break a consult.
+  try {
+    await subs.recordUsage({
+      api: "checktudo",
+      userId: ownerId,
+      productCode: result.product.code,
+      consultaId,
+      placa,
+    });
+  } catch {
+    // ignore metering failures
   }
 
   return {

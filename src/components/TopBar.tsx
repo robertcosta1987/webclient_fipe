@@ -45,6 +45,14 @@ export function TopBar({ user }: { user?: { email: string; role: string } | null
               Convites
             </Link>
           )}
+          {user?.role === "admin" && (
+            <Link
+              href="/admin/uso-apis"
+              className={`erp-navtab${pathname?.startsWith("/admin/uso-apis") ? " erp-navtab--active" : ""}`}
+            >
+              Usage Report
+            </Link>
+          )}
         </nav>
 
         {user && (
