@@ -54,13 +54,25 @@ export async function recordUsage(input: {
 // Usage is split into LIVE (billable — real API calls) and CACHE (served from
 // the SQL cache — counted for visibility, never charged). `revenueBrl` is the
 // amount to charge and comes from live consults only; cached counts/value are
-// informational.
+// informational. Broken down API → subscription → user → product (a
+// subscription can have more than one user).
 export type ProductUsage = {
   code: number;
   name: string;
   liveQty: number;
   cachedQty: number;
   revenueBrl: number;   // live only
+};
+export type UserUsage = {
+  userId: string | null;
+  email: string;
+  liveQty: number;
+  cachedQty: number;
+  revenueBrl: number;     // live only
+  cachedValueBrl: number; // not charged
+  firstAt: string | null;
+  lastAt: string | null;
+  products: ProductUsage[];
 };
 export type SubscriptionUsage = {
   subscriptionId: string | null;
@@ -72,6 +84,7 @@ export type SubscriptionUsage = {
   cachedValueBrl: number; // what cache hits would have cost — NOT charged
   firstAt: string | null;
   lastAt: string | null;
+  users: UserUsage[];
   products: ProductUsage[];
 };
 export type ApiUsage = {
@@ -88,6 +101,8 @@ type Raw = {
   subscription_id: string | null;
   sub_name: string | null;
   sub_key: string | null;
+  user_id: string | null;
+  user_email: string | null;
   product_code: number;
   product_name: string | null;
   source: string;
@@ -102,8 +117,24 @@ function iso(v: string | Date | null): string | null {
   return typeof v === "string" ? v : new Date(v).toISOString();
 }
 
-/** Aggregate the usage ledger into APIs → subscriptions → products, split by
- *  live vs cache. Pass a subscriptionId to scope the report to a single
+type Totals = { liveQty: number; cachedQty: number; revenueBrl: number; cachedValueBrl: number };
+function bump(t: Totals, isLive: boolean, qty: number, value: number): void {
+  if (isLive) { t.liveQty += qty; t.revenueBrl += value; }
+  else { t.cachedQty += qty; t.cachedValueBrl += value; }
+}
+function bumpProduct(list: ProductUsage[], code: number, name: string, isLive: boolean, qty: number, value: number): void {
+  let p = list.find((x) => x.code === code);
+  if (!p) { p = { code, name, liveQty: 0, cachedQty: 0, revenueBrl: 0 }; list.push(p); }
+  if (isLive) { p.liveQty += qty; p.revenueBrl += value; } else { p.cachedQty += qty; }
+}
+function touch(t: { firstAt: string | null; lastAt: string | null }, row: Raw): void {
+  const f = iso(row.first_at), l = iso(row.last_at);
+  if (f && (!t.firstAt || f < t.firstAt)) t.firstAt = f;
+  if (l && (!t.lastAt || l > t.lastAt)) t.lastAt = l;
+}
+
+/** Aggregate the usage ledger into APIs → subscriptions → users → products,
+ *  split by live vs cache. Pass a subscriptionId to scope the report to a single
  *  customer (for the future per-customer view); omit it for the admin's full
  *  report. */
 export async function usageReport(opts: { subscriptionId?: string } = {}): Promise<ApiUsage[]> {
@@ -119,6 +150,8 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
            u.subscription_id,
            s.name AS sub_name,
            s.sub_key,
+           u.user_id,
+           u.user_email,
            u.product_code,
            u.product_name,
            u.source,
@@ -129,20 +162,22 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
     FROM api_usage u
     LEFT JOIN subscriptions s ON s.id = u.subscription_id
     ${scope}
-    GROUP BY u.api, u.subscription_id, s.name, s.sub_key, u.product_code, u.product_name, u.source
-    ORDER BY u.api, s.name, u.product_code
+    GROUP BY u.api, u.subscription_id, s.name, s.sub_key, u.user_id, u.user_email, u.product_code, u.product_name, u.source
+    ORDER BY u.api, s.name, u.user_email, u.product_code
   `);
 
   const apis = new Map<string, ApiUsage>();
   for (const row of r.recordset as Raw[]) {
     const value = Number(row.revenue ?? 0);
     const isLive = row.source === "live";
+    const pname = row.product_name ?? `Consulta ${row.product_code}`;
 
     let api = apis.get(row.api);
     if (!api) {
       api = { api: row.api, liveQty: 0, cachedQty: 0, revenueBrl: 0, cachedValueBrl: 0, subscriptions: [] };
       apis.set(row.api, api);
     }
+    bump(api, isLive, row.qty, value);
 
     const subKeyId = row.subscription_id ?? "__none__";
     let sub = api.subscriptions.find((s) => (s.subscriptionId ?? "__none__") === subKeyId);
@@ -151,36 +186,24 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
         subscriptionId: row.subscription_id,
         name: row.sub_name ?? "Sem assinatura",
         subKey: row.sub_key,
-        liveQty: 0,
-        cachedQty: 0,
-        revenueBrl: 0,
-        cachedValueBrl: 0,
-        firstAt: null,
-        lastAt: null,
-        products: [],
+        liveQty: 0, cachedQty: 0, revenueBrl: 0, cachedValueBrl: 0,
+        firstAt: null, lastAt: null, users: [], products: [],
       };
       api.subscriptions.push(sub);
     }
+    bump(sub, isLive, row.qty, value);
+    bumpProduct(sub.products, row.product_code, pname, isLive, row.qty, value);
+    touch(sub, row);
 
-    let prod = sub.products.find((p2) => p2.code === row.product_code);
-    if (!prod) {
-      prod = { code: row.product_code, name: row.product_name ?? `Consulta ${row.product_code}`, liveQty: 0, cachedQty: 0, revenueBrl: 0 };
-      sub.products.push(prod);
+    const email = row.user_email ?? "(desconhecido)";
+    let user = sub.users.find((usr) => usr.userId === row.user_id && usr.email === email);
+    if (!user) {
+      user = { userId: row.user_id, email, liveQty: 0, cachedQty: 0, revenueBrl: 0, cachedValueBrl: 0, firstAt: null, lastAt: null, products: [] };
+      sub.users.push(user);
     }
-
-    if (isLive) {
-      api.liveQty += row.qty; api.revenueBrl += value;
-      sub.liveQty += row.qty; sub.revenueBrl += value;
-      prod.liveQty += row.qty; prod.revenueBrl += value;
-    } else {
-      api.cachedQty += row.qty; api.cachedValueBrl += value;
-      sub.cachedQty += row.qty; sub.cachedValueBrl += value;
-      prod.cachedQty += row.qty;
-    }
-
-    const f = iso(row.first_at), l = iso(row.last_at);
-    if (f && (!sub.firstAt || f < sub.firstAt)) sub.firstAt = f;
-    if (l && (!sub.lastAt || l > sub.lastAt)) sub.lastAt = l;
+    bump(user, isLive, row.qty, value);
+    bumpProduct(user.products, row.product_code, pname, isLive, row.qty, value);
+    touch(user, row);
   }
 
   return [...apis.values()];
