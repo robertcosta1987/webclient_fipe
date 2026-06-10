@@ -14,6 +14,154 @@ export type SubscriptionRow = {
   created_at: string;
 };
 
+export type PlanType = "consultas" | "cash";
+
+// ── Provisioning ──────────────────────────────────────────────────────────────
+export async function createSubscription(input: {
+  name: string;
+  subKey: string;
+  planType: PlanType;
+  spendLimitBrl: number | null;
+}): Promise<{ id: string }> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("n", sql.NVarChar(120), input.name)
+    .input("k", sql.NVarChar(60), input.subKey)
+    .input("pt", sql.NVarChar(20), input.planType)
+    .input("lim", sql.Decimal(12, 2), input.spendLimitBrl)
+    .query(`
+      INSERT INTO subscriptions (name, sub_key, status, plan_type, spend_limit_brl)
+      OUTPUT inserted.id
+      VALUES (@n, @k, 'active', @pt, @lim);
+    `);
+  return { id: r.recordset[0].id as string };
+}
+
+/** Contract a product on a subscription. `granted` = consult credits for the
+ *  'consultas' model, or null = "allowed" (cash model). */
+export async function addQuota(input: {
+  subscriptionId: string;
+  api: string;
+  productCode: number;
+  granted: number | null;
+}): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("s", sql.UniqueIdentifier, input.subscriptionId)
+    .input("a", sql.NVarChar(40), input.api)
+    .input("c", sql.SmallInt, input.productCode)
+    .input("g", sql.Int, input.granted)
+    .query(`
+      IF NOT EXISTS (SELECT 1 FROM subscription_quotas WHERE subscription_id=@s AND api=@a AND product_code=@c)
+        INSERT INTO subscription_quotas (subscription_id, api, product_code, granted) VALUES (@s, @a, @c, @g);
+      ELSE
+        UPDATE subscription_quotas SET granted = @g WHERE subscription_id=@s AND api=@a AND product_code=@c;
+    `);
+}
+
+// ── Enforcement (consumption limits) ──────────────────────────────────────────
+export type SubPlan = { subscriptionId: string; planType: PlanType | null; spendLimitBrl: number | null };
+
+/** The acting user's subscription + plan, or null if they have no subscription. */
+export async function getSubPlan(userId: string): Promise<SubPlan | null> {
+  const p = await getPool();
+  const r = await p.request().input("uid", sql.UniqueIdentifier, userId).query(`
+    SELECT TOP 1 CAST(s.id AS NVARCHAR(40)) AS id, s.plan_type, s.spend_limit_brl
+    FROM users u JOIN subscriptions s ON s.id = u.subscription_id
+    WHERE u.id = @uid
+  `);
+  const row = r.recordset[0];
+  if (!row) return null;
+  return {
+    subscriptionId: row.id as string,
+    planType: (row.plan_type as PlanType | null) ?? null,
+    spendLimitBrl: row.spend_limit_brl === null || row.spend_limit_brl === undefined ? null : Number(row.spend_limit_brl),
+  };
+}
+
+export async function getProductPrice(api: string, code: number): Promise<number | null> {
+  const p = await getPool();
+  const r = await p.request().input("a", sql.NVarChar(40), api).input("c", sql.SmallInt, code)
+    .query(`SELECT TOP 1 unit_price_brl FROM api_products WHERE api=@a AND code=@c`);
+  const v = r.recordset[0]?.unit_price_brl;
+  return v === null || v === undefined ? null : Number(v);
+}
+
+/** Atomically reserve one live consult against the subscription's plan. Returns
+ *  ok:false (with a friendly reason) when a limit would be exceeded or the
+ *  product isn't contracted. Caller refunds via refundConsult if the live call
+ *  then fails. No-op (ok:true) when planType is null (unlimited). */
+export async function reserveConsult(input: {
+  subscriptionId: string;
+  planType: PlanType | null;
+  api: string;
+  productCode: number;
+  price: number | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!input.planType) return { ok: true };
+  const p = await getPool();
+
+  if (input.planType === "consultas") {
+    const r = await p.request()
+      .input("s", sql.UniqueIdentifier, input.subscriptionId)
+      .input("a", sql.NVarChar(40), input.api)
+      .input("c", sql.SmallInt, input.productCode)
+      .query(`UPDATE subscription_quotas SET used = used + 1
+              WHERE subscription_id=@s AND api=@a AND product_code=@c AND granted IS NOT NULL AND used < granted;`);
+    if ((r.rowsAffected[0] ?? 0) === 1) return { ok: true };
+    // Distinguish "not contracted" from "limit reached".
+    const ex = await p.request()
+      .input("s", sql.UniqueIdentifier, input.subscriptionId)
+      .input("a", sql.NVarChar(40), input.api)
+      .input("c", sql.SmallInt, input.productCode)
+      .query(`SELECT TOP 1 granted FROM subscription_quotas WHERE subscription_id=@s AND api=@a AND product_code=@c`);
+    if (ex.recordset.length === 0) return { ok: false, error: "Produto não contratado nesta assinatura." };
+    return { ok: false, error: "Limite de consultas atingido para este produto." };
+  }
+
+  // cash
+  const ex = await p.request()
+    .input("s", sql.UniqueIdentifier, input.subscriptionId)
+    .input("a", sql.NVarChar(40), input.api)
+    .input("c", sql.SmallInt, input.productCode)
+    .query(`SELECT TOP 1 1 AS ok FROM subscription_quotas WHERE subscription_id=@s AND api=@a AND product_code=@c`);
+  if (ex.recordset.length === 0) return { ok: false, error: "Produto não contratado nesta assinatura." };
+
+  const price = input.price ?? 0;
+  const r = await p.request()
+    .input("s", sql.UniqueIdentifier, input.subscriptionId)
+    .input("price", sql.Decimal(12, 2), price)
+    .query(`UPDATE subscriptions SET spent_brl = spent_brl + @price
+            WHERE id=@s AND (spend_limit_brl IS NULL OR spent_brl + @price <= spend_limit_brl);`);
+  if ((r.rowsAffected[0] ?? 0) === 1) return { ok: true };
+  return { ok: false, error: "Orçamento da assinatura esgotado para esta consulta." };
+}
+
+/** Reverse a reservation when the live call fails (so a failed call costs nothing). */
+export async function refundConsult(input: {
+  subscriptionId: string;
+  planType: PlanType | null;
+  api: string;
+  productCode: number;
+  price: number | null;
+}): Promise<void> {
+  if (!input.planType) return;
+  const p = await getPool();
+  if (input.planType === "consultas") {
+    await p.request()
+      .input("s", sql.UniqueIdentifier, input.subscriptionId)
+      .input("a", sql.NVarChar(40), input.api)
+      .input("c", sql.SmallInt, input.productCode)
+      .query(`UPDATE subscription_quotas SET used = used - 1
+              WHERE subscription_id=@s AND api=@a AND product_code=@c AND used > 0;`);
+  } else {
+    await p.request()
+      .input("s", sql.UniqueIdentifier, input.subscriptionId)
+      .input("price", sql.Decimal(12, 2), input.price ?? 0)
+      .query(`UPDATE subscriptions SET spent_brl = spent_brl - @price WHERE id=@s AND spent_brl >= @price;`);
+  }
+}
+
 /** Record one consult. `source` is 'live' (a real API call — billable) or
  *  'cache' (served from the SQL cache — recorded for reporting, NOT charged).
  *  Snapshots the user's subscription, the product name and its unit price — all

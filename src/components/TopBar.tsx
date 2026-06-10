@@ -39,6 +39,14 @@ export function TopBar({ user }: { user?: { email: string; role: string } | null
           })}
           {user?.role === "admin" && (
             <Link
+              href="/admin/assinaturas"
+              className={`erp-navtab${pathname?.startsWith("/admin/assinaturas") ? " erp-navtab--active" : ""}`}
+            >
+              Adicionar Assinatura
+            </Link>
+          )}
+          {user?.role === "admin" && (
+            <Link
               href="/admin/convites"
               className={`erp-navtab${pathname?.startsWith("/admin/convites") ? " erp-navtab--active" : ""}`}
             >

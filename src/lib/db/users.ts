@@ -12,6 +12,7 @@ export type UserRow = {
   password_salt: string;
   role: "admin" | "user";
   status: "active" | "disabled";
+  must_change_password: boolean;
   created_at: string;
 };
 
@@ -30,7 +31,7 @@ export async function getUserByEmail(email: string): Promise<UserRow | null> {
   const p = await getPool();
   const r = await p.request()
     .input("email", sql.NVarChar(254), norm(email))
-    .query(`SELECT TOP 1 id, email, name, password_hash, password_salt, role, status, created_at
+    .query(`SELECT TOP 1 id, email, name, password_hash, password_salt, role, status, must_change_password, created_at
             FROM users WHERE email = @email`);
   return (r.recordset[0] as UserRow | undefined) ?? null;
 }
@@ -47,6 +48,8 @@ export async function createUser(input: {
   passwordHash: string;
   passwordSalt: string;
   role: "admin" | "user";
+  subscriptionId?: string | null;
+  mustChangePassword?: boolean;
 }): Promise<{ id: string }> {
   const p = await getPool();
   const r = await p.request()
@@ -55,12 +58,24 @@ export async function createUser(input: {
     .input("hash", sql.NVarChar(256), input.passwordHash)
     .input("salt", sql.NVarChar(64), input.passwordSalt)
     .input("role", sql.NVarChar(20), input.role)
+    .input("sub", sql.UniqueIdentifier, input.subscriptionId ?? null)
+    .input("mcp", sql.Bit, input.mustChangePassword ? 1 : 0)
     .query(`
-      INSERT INTO users (email, name, password_hash, password_salt, role, status)
+      INSERT INTO users (email, name, password_hash, password_salt, role, status, subscription_id, must_change_password)
       OUTPUT inserted.id
-      VALUES (@email, @name, @hash, @salt, @role, 'active');
+      VALUES (@email, @name, @hash, @salt, @role, 'active', @sub, @mcp);
     `);
   return { id: r.recordset[0].id as string };
+}
+
+/** Set a new password and clear the force-change flag (first-login flow). */
+export async function setPassword(userId: string, passwordHash: string, passwordSalt: string): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("uid", sql.UniqueIdentifier, userId)
+    .input("hash", sql.NVarChar(256), passwordHash)
+    .input("salt", sql.NVarChar(64), passwordSalt)
+    .query(`UPDATE users SET password_hash = @hash, password_salt = @salt, must_change_password = 0 WHERE id = @uid`);
 }
 
 export async function deleteUser(id: string): Promise<void> {

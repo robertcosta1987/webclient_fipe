@@ -64,6 +64,7 @@ export async function login(formData: FormData): Promise<AuthResult> {
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "Informe e-mail e senha." };
 
+  let mustChange = false;
   try {
     const user = await users.getUserByEmail(email);
     // Same generic message whether the user is missing, disabled, or the
@@ -73,10 +74,32 @@ export async function login(formData: FormData): Promise<AuthResult> {
     const ok = await verifyPassword(password, user.password_hash, user.password_salt);
     if (!ok) return { error: GENERIC };
 
+    mustChange = Boolean(user.must_change_password);
     await users.touchLastLogin(user.id);
-    await createSession({ userId: user.id, role: user.role, email: user.email });
+    await createSession({ userId: user.id, role: user.role, email: user.email, mustChange });
   } catch {
     return { error: "Falha ao entrar. Tente novamente." };
+  }
+  redirect(mustChange ? "/trocar-senha" : "/precos");
+}
+
+/** First-login (or voluntary) password change. Clears the force-change flag and
+ *  re-issues the session without it. */
+export async function changePassword(formData: FormData): Promise<AuthResult> {
+  const session = await getSession();
+  if (!session) return { error: "Sessão expirada. Entre novamente." };
+
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < MIN_PW) return { error: `A senha precisa ter pelo menos ${MIN_PW} caracteres.` };
+  if (password !== confirm) return { error: "As senhas não conferem." };
+
+  try {
+    const { hash, salt } = await hashPassword(password);
+    await users.setPassword(session.userId, hash, salt);
+    await createSession({ userId: session.userId, role: session.role, email: session.email, mustChange: false });
+  } catch {
+    return { error: "Não foi possível alterar a senha. Tente novamente." };
   }
   redirect("/precos");
 }

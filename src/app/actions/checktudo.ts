@@ -128,9 +128,33 @@ export async function lookupPlacaChecktudo(
     }
   }
 
+  // 1b. Enforce the subscription's consumption plan — but only on the LIVE path
+  //     (cache hits returned above are never enforced). Master bypasses; a
+  //     subscription with no plan_type is unlimited. Reserve a credit/budget
+  //     atomically BEFORE the vendor call; refund below if the call fails.
+  let reservation:
+    | { subscriptionId: string; planType: subs.PlanType | null; api: string; productCode: number; price: number | null }
+    | null = null;
+  if (!master) {
+    const plan = await subs.getSubPlan(ownerId).catch(() => null);
+    if (plan && plan.planType) {
+      const price = await subs.getProductPrice("checktudo", productCode).catch(() => null);
+      const res = await subs.reserveConsult({
+        subscriptionId: plan.subscriptionId,
+        planType: plan.planType,
+        api: "checktudo",
+        productCode,
+        price,
+      });
+      if (!res.ok) return { ok: false, error: res.error };
+      reservation = { subscriptionId: plan.subscriptionId, planType: plan.planType, api: "checktudo", productCode, price };
+    }
+  }
+
   // 2. Live call to the CheckTudo function.
   const result = await fetchChecktudoByPlate(placa, productCode);
   if (!result.ok) {
+    if (reservation) await subs.refundConsult(reservation).catch(() => {});
     // Prefer a known friendly tag; otherwise surface the vendor's own message
     // (e.g. "limite de consultas atingido") instead of a bare HTTP code.
     const friendly =

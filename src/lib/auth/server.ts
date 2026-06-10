@@ -14,7 +14,7 @@ function secret(): string {
 }
 
 export async function createSession(p: Omit<SessionPayload, "exp">): Promise<void> {
-  const token = await signSession({ ...p, exp: Date.now() + MAX_AGE_S * 1000 }, secret());
+  const token = await signSession({ ...p, mustChange: p.mustChange ?? false, exp: Date.now() + MAX_AGE_S * 1000 }, secret());
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

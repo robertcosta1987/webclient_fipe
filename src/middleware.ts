@@ -36,6 +36,24 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Force a first-login password change: while flagged, the user can only reach
+  // /trocar-senha (the change-password page + its server action). Everything
+  // else bounces there.
+  const CHANGE_PATH = "/trocar-senha";
+  if (session?.mustChange && pathname !== CHANGE_PATH) {
+    const url = req.nextUrl.clone();
+    url.pathname = CHANGE_PATH;
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+  // Once changed, don't linger on the change page.
+  if (session && !session.mustChange && pathname === CHANGE_PATH) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/precos";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 

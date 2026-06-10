@@ -8,6 +8,8 @@ export type SessionPayload = {
   role: string;
   email: string;
   exp: number; // epoch ms
+  /** Set when the user must change their password before using the app. */
+  mustChange?: boolean;
 };
 
 export const SESSION_COOKIE = "dc_session";
