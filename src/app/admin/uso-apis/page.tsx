@@ -28,9 +28,10 @@ export default async function UsoApisPage() {
           Usage Report for APIs
         </h1>
         <p className="text-sm text-[var(--fg-muted)] mt-2 max-w-2xl rise rise-d2">
-          Consumo faturável por API. Apenas consultas executadas de fato (chamadas
-          ao vivo) são contadas — consultas servidas do cache não geram cobrança.
-          Expanda uma API para ver o uso por assinatura (cliente) e produto.
+          Consumo por API, separado entre <strong>ao vivo</strong> (chamadas reais —
+          faturáveis) e <strong>cache</strong> (servidas do cache — contadas para
+          relatório, <strong>não cobradas</strong>). O total <strong>A cobrar</strong> considera
+          apenas o uso ao vivo. Expanda uma API para ver o uso por assinatura (cliente) e produto.
         </p>
       </header>
       <UsageReportClient apis={apis} />

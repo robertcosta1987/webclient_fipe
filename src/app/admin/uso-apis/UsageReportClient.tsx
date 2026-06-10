@@ -52,8 +52,9 @@ function ApiCard({ api }: { api: ApiUsage }) {
           </div>
           <div className="text-xs text-[var(--fg-muted)]">{api.subscriptions.length} assinatura(s)</div>
         </div>
-        <Metric label="Consultas" value={String(api.qty)} />
-        <Metric label="Receita" value={BRL.format(api.revenueBrl)} accent />
+        <Metric label="Ao vivo (cobr.)" value={String(api.liveQty)} />
+        <Metric label="Cache (grátis)" value={String(api.cachedQty)} />
+        <Metric label="A cobrar" value={BRL.format(api.revenueBrl)} accent />
       </button>
 
       {open && (
@@ -85,7 +86,8 @@ function SubscriptionRow({ sub }: { sub: ApiUsage["subscriptions"][number] }) {
             <span className="text-[var(--fg-faint)]"> · {sub.products.length} produto(s)</span>
           </div>
         </div>
-        <Metric label="Consultas" value={String(sub.qty)} small />
+        <Metric label="Ao vivo" value={String(sub.liveQty)} small />
+        <Metric label="Cache" value={String(sub.cachedQty)} small />
         <Metric label="A cobrar" value={BRL.format(sub.revenueBrl)} accent small />
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">Último uso</p>
@@ -100,8 +102,9 @@ function SubscriptionRow({ sub }: { sub: ApiUsage["subscriptions"][number] }) {
               <tr className="text-[10px] uppercase tracking-[0.16em] text-[var(--fg-muted)]">
                 <th className="text-left font-normal py-1">Produto</th>
                 <th className="text-left font-normal py-1">Código</th>
-                <th className="text-right font-normal py-1">Qtd.</th>
-                <th className="text-right font-normal py-1">Receita</th>
+                <th className="text-right font-normal py-1">Ao vivo</th>
+                <th className="text-right font-normal py-1">Cache</th>
+                <th className="text-right font-normal py-1">A cobrar</th>
               </tr>
             </thead>
             <tbody>
@@ -109,14 +112,15 @@ function SubscriptionRow({ sub }: { sub: ApiUsage["subscriptions"][number] }) {
                 <tr key={p.code} className="border-t border-[var(--hairline)]">
                   <td className="py-1.5 text-[var(--fg-strong)]">{p.name}</td>
                   <td className="py-1.5 font-mono text-[var(--fg-muted)]">{p.code}</td>
-                  <td className="py-1.5 text-right font-mono text-[var(--fg)]">{p.qty}</td>
+                  <td className="py-1.5 text-right font-mono text-[var(--fg)]">{p.liveQty}</td>
+                  <td className="py-1.5 text-right font-mono text-[var(--fg-muted)]">{p.cachedQty}</td>
                   <td className="py-1.5 text-right font-mono text-[var(--fg-strong)]">{BRL.format(p.revenueBrl)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="mt-2 text-[11px] text-[var(--fg-faint)]">
-            Primeira consulta: {fmtDate(sub.firstAt)} · Última: {fmtDate(sub.lastAt)}
+            Primeira consulta: {fmtDate(sub.firstAt)} · Última: {fmtDate(sub.lastAt)} · Cache servido (não cobrado): <span className="font-mono">{sub.cachedQty}</span> consulta(s){sub.cachedValueBrl > 0 && <> · valor equivalente {BRL.format(sub.cachedValueBrl)} <span className="text-[var(--success)]">economizado</span></>}
           </p>
         </div>
       )}

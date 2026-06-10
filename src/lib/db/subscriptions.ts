@@ -14,17 +14,20 @@ export type SubscriptionRow = {
   created_at: string;
 };
 
-/** Record one billable consult. Snapshots the user's subscription, the product
- *  name and its unit price — all in a single INSERT…SELECT so usage, ownership
- *  and price are captured atomically at the moment of use. Returns the new row
- *  id, or null if nothing was recorded (e.g. unknown user). Best-effort: the
- *  caller wraps this so a metering failure never breaks the consult. */
+/** Record one consult. `source` is 'live' (a real API call — billable) or
+ *  'cache' (served from the SQL cache — recorded for reporting, NOT charged).
+ *  Snapshots the user's subscription, the product name and its unit price — all
+ *  in a single INSERT…SELECT so usage, ownership and price are captured
+ *  atomically. Returns the new row id, or null if nothing was recorded (e.g.
+ *  unknown user). Best-effort: the caller wraps this so a metering failure
+ *  never breaks the consult. */
 export async function recordUsage(input: {
   api: string;
   userId: string;
   productCode: number;
   consultaId: string | null;
   placa: string | null;
+  source: "live" | "cache";
 }): Promise<{ id: string } | null> {
   const p = await getPool();
   const r = await p.request()
@@ -33,11 +36,12 @@ export async function recordUsage(input: {
     .input("consulta", sql.UniqueIdentifier, input.consultaId)
     .input("placa", sql.NVarChar(10), input.placa)
     .input("userId", sql.UniqueIdentifier, input.userId)
+    .input("source", sql.NVarChar(10), input.source)
     .query(`
       INSERT INTO api_usage
-        (subscription_id, user_id, user_email, api, product_code, product_name, consulta_id, placa, unit_price_brl)
+        (subscription_id, user_id, user_email, api, product_code, product_name, consulta_id, placa, unit_price_brl, source)
       OUTPUT inserted.id
-      SELECT u.subscription_id, u.id, u.email, @api, @code, p.name, @consulta, @placa, p.unit_price_brl
+      SELECT u.subscription_id, u.id, u.email, @api, @code, p.name, @consulta, @placa, p.unit_price_brl, @source
       FROM users u
       LEFT JOIN api_products p ON p.api = @api AND p.code = @code
       WHERE u.id = @userId;
@@ -47,26 +51,35 @@ export async function recordUsage(input: {
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────
+// Usage is split into LIVE (billable — real API calls) and CACHE (served from
+// the SQL cache — counted for visibility, never charged). `revenueBrl` is the
+// amount to charge and comes from live consults only; cached counts/value are
+// informational.
 export type ProductUsage = {
   code: number;
   name: string;
-  qty: number;
-  revenueBrl: number;
+  liveQty: number;
+  cachedQty: number;
+  revenueBrl: number;   // live only
 };
 export type SubscriptionUsage = {
   subscriptionId: string | null;
   name: string;          // subscription name, or "Sem assinatura"
   subKey: string | null;
-  qty: number;
-  revenueBrl: number;
+  liveQty: number;
+  cachedQty: number;
+  revenueBrl: number;    // live only — the amount to charge
+  cachedValueBrl: number; // what cache hits would have cost — NOT charged
   firstAt: string | null;
   lastAt: string | null;
   products: ProductUsage[];
 };
 export type ApiUsage = {
   api: string;
-  qty: number;
-  revenueBrl: number;
+  liveQty: number;
+  cachedQty: number;
+  revenueBrl: number;     // live only
+  cachedValueBrl: number; // not charged
   subscriptions: SubscriptionUsage[];
 };
 
@@ -77,6 +90,7 @@ type Raw = {
   sub_key: string | null;
   product_code: number;
   product_name: string | null;
+  source: string;
   qty: number;
   revenue: number | null;
   first_at: string | Date | null;
@@ -88,9 +102,10 @@ function iso(v: string | Date | null): string | null {
   return typeof v === "string" ? v : new Date(v).toISOString();
 }
 
-/** Aggregate the usage ledger into APIs → subscriptions → products. Pass a
- *  subscriptionId to scope the report to a single customer (for the future
- *  per-customer view); omit it for the admin's full report. */
+/** Aggregate the usage ledger into APIs → subscriptions → products, split by
+ *  live vs cache. Pass a subscriptionId to scope the report to a single
+ *  customer (for the future per-customer view); omit it for the admin's full
+ *  report. */
 export async function usageReport(opts: { subscriptionId?: string } = {}): Promise<ApiUsage[]> {
   const p = await getPool();
   const req = p.request();
@@ -106,6 +121,7 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
            s.sub_key,
            u.product_code,
            u.product_name,
+           u.source,
            COUNT(*) AS qty,
            SUM(u.unit_price_brl) AS revenue,
            MIN(u.counted_at) AS first_at,
@@ -113,20 +129,20 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
     FROM api_usage u
     LEFT JOIN subscriptions s ON s.id = u.subscription_id
     ${scope}
-    GROUP BY u.api, u.subscription_id, s.name, s.sub_key, u.product_code, u.product_name
+    GROUP BY u.api, u.subscription_id, s.name, s.sub_key, u.product_code, u.product_name, u.source
     ORDER BY u.api, s.name, u.product_code
   `);
 
   const apis = new Map<string, ApiUsage>();
   for (const row of r.recordset as Raw[]) {
-    const revenue = Number(row.revenue ?? 0);
+    const value = Number(row.revenue ?? 0);
+    const isLive = row.source === "live";
+
     let api = apis.get(row.api);
     if (!api) {
-      api = { api: row.api, qty: 0, revenueBrl: 0, subscriptions: [] };
+      api = { api: row.api, liveQty: 0, cachedQty: 0, revenueBrl: 0, cachedValueBrl: 0, subscriptions: [] };
       apis.set(row.api, api);
     }
-    api.qty += row.qty;
-    api.revenueBrl += revenue;
 
     const subKeyId = row.subscription_id ?? "__none__";
     let sub = api.subscriptions.find((s) => (s.subscriptionId ?? "__none__") === subKeyId);
@@ -135,25 +151,36 @@ export async function usageReport(opts: { subscriptionId?: string } = {}): Promi
         subscriptionId: row.subscription_id,
         name: row.sub_name ?? "Sem assinatura",
         subKey: row.sub_key,
-        qty: 0,
+        liveQty: 0,
+        cachedQty: 0,
         revenueBrl: 0,
+        cachedValueBrl: 0,
         firstAt: null,
         lastAt: null,
         products: [],
       };
       api.subscriptions.push(sub);
     }
-    sub.qty += row.qty;
-    sub.revenueBrl += revenue;
+
+    let prod = sub.products.find((p2) => p2.code === row.product_code);
+    if (!prod) {
+      prod = { code: row.product_code, name: row.product_name ?? `Consulta ${row.product_code}`, liveQty: 0, cachedQty: 0, revenueBrl: 0 };
+      sub.products.push(prod);
+    }
+
+    if (isLive) {
+      api.liveQty += row.qty; api.revenueBrl += value;
+      sub.liveQty += row.qty; sub.revenueBrl += value;
+      prod.liveQty += row.qty; prod.revenueBrl += value;
+    } else {
+      api.cachedQty += row.qty; api.cachedValueBrl += value;
+      sub.cachedQty += row.qty; sub.cachedValueBrl += value;
+      prod.cachedQty += row.qty;
+    }
+
     const f = iso(row.first_at), l = iso(row.last_at);
     if (f && (!sub.firstAt || f < sub.firstAt)) sub.firstAt = f;
     if (l && (!sub.lastAt || l > sub.lastAt)) sub.lastAt = l;
-    sub.products.push({
-      code: row.product_code,
-      name: row.product_name ?? `Consulta ${row.product_code}`,
-      qty: row.qty,
-      revenueBrl: revenue,
-    });
   }
 
   return [...apis.values()];

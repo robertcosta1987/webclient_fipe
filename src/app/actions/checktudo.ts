@@ -92,6 +92,19 @@ export async function lookupPlacaChecktudo(
     try {
       const hit = await ct.findFreshByPlaca(placa, productCode, master ? null : ownerId);
       if (hit) {
+        // Count the cache hit (reporting only — never charged). Best-effort.
+        try {
+          await subs.recordUsage({
+            api: "checktudo",
+            userId: ownerId,
+            productCode,
+            consultaId: hit.row.id,
+            placa,
+            source: "cache",
+          });
+        } catch {
+          // ignore metering failures
+        }
         return {
           ok: true,
           placa,
@@ -191,6 +204,7 @@ export async function lookupPlacaChecktudo(
       productCode: result.product.code,
       consultaId,
       placa,
+      source: "live",
     });
   } catch {
     // ignore metering failures
