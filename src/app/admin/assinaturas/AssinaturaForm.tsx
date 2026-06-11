@@ -9,6 +9,7 @@ type PlanType = "consultas" | "cash" | "ondemand";
 export function AssinaturaForm() {
   const [nome, setNome] = useState("");
   const [empresa, setEmpresa] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [email, setEmail] = useState("");
   const [planType, setPlanType] = useState<PlanType>("consultas");
   const [value, setValue] = useState(""); // queries (consultas) | R$ (cash/ondemand)
@@ -31,6 +32,7 @@ export function AssinaturaForm() {
       const res = await createSubscription({
         nome,
         empresa,
+        cnpj,
         email,
         planType,
         queryLimit: planType === "consultas" ? Number(value || 0) : null,
@@ -42,7 +44,7 @@ export function AssinaturaForm() {
   }
 
   function reset() {
-    setNome(""); setEmpresa(""); setEmail(""); setPlanType("consultas"); setValue("");
+    setNome(""); setEmpresa(""); setCnpj(""); setEmail(""); setPlanType("consultas"); setValue("");
     setSelected(Object.fromEntries(CHECKTUDO_PRODUCTS.map((p) => [p.code, false])));
     setResult(null); setCopied(false);
   }
@@ -99,6 +101,7 @@ export function AssinaturaForm() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Nome *" value={nome} onChange={setNome} placeholder="Nome do contato" />
           <Input label="Empresa *" value={empresa} onChange={setEmpresa} placeholder="Razão social / nome fantasia" />
+          <Input label="CNPJ *" value={cnpj} onChange={setCnpj} placeholder="00.000.000/0000-00" />
           <Input label="E-mail (login) *" value={email} onChange={setEmail} type="email" placeholder="cliente@empresa.com.br" />
         </div>
       </fieldset>

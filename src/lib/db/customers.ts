@@ -10,6 +10,7 @@ export type CustomerRow = {
   id: string;
   name: string;
   company: string;
+  cnpj: string | null;
   email: string;
   phone: string | null;
   subscription_id: string | null;
@@ -21,6 +22,7 @@ export type CustomerRow = {
 export async function createCustomer(input: {
   name: string;
   company: string;
+  cnpj?: string | null;
   email: string;
   phone?: string | null;
   subscriptionId: string | null;
@@ -30,14 +32,15 @@ export async function createCustomer(input: {
   const r = await p.request()
     .input("name", sql.NVarChar(120), input.name)
     .input("company", sql.NVarChar(160), input.company)
+    .input("cnpj", sql.NVarChar(18), input.cnpj ?? null)
     .input("email", sql.NVarChar(254), input.email.toLowerCase())
     .input("phone", sql.NVarChar(30), input.phone ?? null)
     .input("sub", sql.UniqueIdentifier, input.subscriptionId)
     .input("uid", sql.UniqueIdentifier, input.userId)
     .query(`
-      INSERT INTO customers (name, company, email, phone, subscription_id, user_id)
+      INSERT INTO customers (name, company, cnpj, email, phone, subscription_id, user_id)
       OUTPUT inserted.id
-      VALUES (@name, @company, @email, @phone, @sub, @uid);
+      VALUES (@name, @company, @cnpj, @email, @phone, @sub, @uid);
     `);
   return { id: r.recordset[0].id as string };
 }

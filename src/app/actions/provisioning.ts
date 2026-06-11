@@ -21,6 +21,7 @@ export type PlanType = "consultas" | "cash" | "ondemand";
 export type CreateSubInput = {
   nome: string;
   empresa: string;
+  cnpj: string;
   email: string;
   planType: PlanType;
   queryLimit?: number | null;    // consultas — total query hard cap
@@ -51,6 +52,26 @@ function tempPassword(len = 12): string {
   return out;
 }
 
+// CNPJ validation (14 digits + two check digits). Returns the normalized
+// 14-digit string, or null if invalid.
+function normalizeCnpj(raw: string): string | null {
+  const d = (raw ?? "").replace(/\D/g, "");
+  if (d.length !== 14) return null;
+  if (/^(\d)\1{13}$/.test(d)) return null; // reject 00000000000000 etc.
+  const check = (len: number): number => {
+    let sum = 0, pos = len - 7;
+    for (let i = len; i >= 1; i--) {
+      sum += Number(d[len - i]) * pos--;
+      if (pos < 2) pos = 9;
+    }
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  if (check(12) !== Number(d[12])) return null;
+  if (check(13) !== Number(d[13])) return null;
+  return d;
+}
+
 function slug(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12) || "CLIENTE";
 }
@@ -64,6 +85,8 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
   const email = (input.email ?? "").trim().toLowerCase();
   if (!nome) return { ok: false, error: "Informe o nome." };
   if (!empresa) return { ok: false, error: "Informe a empresa." };
+  const cnpj = normalizeCnpj(input.cnpj ?? "");
+  if (!cnpj) return { ok: false, error: "Informe um CNPJ válido (14 dígitos)." };
   if (!EMAIL_RE.test(email)) return { ok: false, error: "Informe um e-mail válido." };
 
   const planType = input.planType;
@@ -127,7 +150,7 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
 
   // CRM registry + contracted products (best-effort after the user exists).
   try {
-    await customers.createCustomer({ name: nome, company: empresa, email, subscriptionId, userId });
+    await customers.createCustomer({ name: nome, company: empresa, cnpj, email, subscriptionId, userId });
   } catch { /* CRM row is non-critical; continue */ }
 
   for (const code of products) {
