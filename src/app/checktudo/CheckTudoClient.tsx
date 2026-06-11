@@ -133,10 +133,14 @@ export function ChecktudoReport({
   r,
   pending,
   onForceRefresh,
+  embedded = false,
 }: {
   r: Extract<ChecktudoLookupResult, { ok: true }>;
   pending: boolean;
   onForceRefresh: () => void;
+  /** When rendered inside the history expander, the parecer + laudo link are
+   *  shown by the history card itself — hide them here to avoid redundancy. */
+  embedded?: boolean;
 }) {
   const { scalars, priceBlocks, opcionais } = collect(r.data);
   const sections = bucket(scalars, opcionais);
@@ -150,7 +154,7 @@ export function ChecktudoReport({
     <div className="space-y-6">
       {r.fromCache && <CacheBadge cachedAt={r.cachedAt} pending={pending} onForceRefresh={onForceRefresh} />}
 
-      {r.parecerVeredito && (
+      {!embedded && r.parecerVeredito && (
         <ParecerBanner
           veredito={r.parecerVeredito}
           motivo={r.parecerMotivo}
@@ -159,7 +163,7 @@ export function ChecktudoReport({
         />
       )}
 
-      {r.consultaId && (
+      {!embedded && r.consultaId && (
         <a href={`/laudo/${r.consultaId}`} className="btn-primary text-sm inline-block">
           Ver laudo inteligente →
         </a>
