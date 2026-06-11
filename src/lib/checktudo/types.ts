@@ -9,7 +9,7 @@ import { z } from "zod";
 /** Selectable products — mirrors PRODUCTS in the function's checktudo.js. */
 export const CHECKTUDO_PRODUCTS: ReadonlyArray<{ code: number; name: string }> = [
   { code: 66, name: "Veículo Total" },
-  { code: 65, name: "Consulta 65" },
+  { code: 65, name: "Total Plus" },
   { code: 67, name: "Veículo Essencial" },
   { code: 13, name: "Decodificador e Precificador" },
   { code: 71, name: "Dados Cadastrais do Veículo" },
