@@ -159,6 +159,12 @@ export function ChecktudoReport({
         />
       )}
 
+      {r.consultaId && (
+        <a href={`/laudo/${r.consultaId}`} className="btn-primary text-sm inline-block">
+          Ver laudo inteligente →
+        </a>
+      )}
+
       <header className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
         <Plate placa={r.placa} size="lg" />
         <Field label="Produto" value={`${r.product.name} (${r.product.code})`} />

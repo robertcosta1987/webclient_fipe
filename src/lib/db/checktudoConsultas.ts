@@ -81,6 +81,33 @@ export async function getById(id: string, ownerId: string): Promise<(ChecktudoCo
   return { ...row, parsed: safeParse(row.payload) };
 }
 
+/** Load a consult for the laudo: raw data + any cached laudo. `ownerId = null`
+ *  (master) reads across owners. */
+export async function getForLaudo(
+  id: string,
+  ownerId: string | null,
+): Promise<{ data: ChecktudoData; productCode: number; placa: string; laudoFacts: string | null; laudoIa: string | null } | null> {
+  const p = await getPool();
+  const req = p.request().input("id", sql.UniqueIdentifier, id);
+  let ownerClause = "";
+  if (ownerId !== null) { req.input("owner", sql.UniqueIdentifier, ownerId); ownerClause = "AND owner_id = @owner"; }
+  const r = await req.query(`SELECT TOP 1 payload, product_code, placa, laudo_facts, laudo_ia
+    FROM checktudo_consultas WHERE id = @id ${ownerClause}`);
+  const row = r.recordset[0] as { payload: string; product_code: number; placa: string; laudo_facts: string | null; laudo_ia: string | null } | undefined;
+  if (!row) return null;
+  return { data: safeParse(row.payload), productCode: row.product_code, placa: row.placa, laudoFacts: row.laudo_facts, laudoIa: row.laudo_ia };
+}
+
+/** Persist the computed facts bundle + AI narrative for a consulta. */
+export async function saveLaudo(id: string, factsJson: string, iaJson: string): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("id", sql.UniqueIdentifier, id)
+    .input("facts", sql.NVarChar(sql.MAX), factsJson)
+    .input("ia", sql.NVarChar(sql.MAX), iaJson)
+    .query(`UPDATE checktudo_consultas SET laudo_facts = @facts, laudo_ia = @ia WHERE id = @id`);
+}
+
 /** Most recent N consultations, newest first. `ownerId = null` (master) returns
  *  all owners' consultations. */
 export async function listRecent(ownerId: string | null, limit = 100): Promise<ChecktudoConsultaRow[]> {
