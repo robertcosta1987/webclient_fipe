@@ -154,14 +154,11 @@ function ConsultaCard({ row }: { row: ChecktudoConsultaRow }) {
               <Cell label="Query ID" value={row.query_id ?? "—"} mono />
               <Cell label="ID da consulta" value={row.id.slice(0, 8)} mono />
             </dl>
-            <div className="flex flex-wrap gap-2 sm:justify-end sm:items-start">
-              <a href={`/laudo/${row.id}`} className="btn-primary text-xs whitespace-nowrap">
-                Ver laudo inteligente →
-              </a>
+            <div className="flex sm:flex-col gap-2 sm:items-end">
               <button
                 type="button"
                 onClick={() => setFull((s) => !s)}
-                className="btn-ghost text-xs whitespace-nowrap"
+                className="btn-primary text-xs whitespace-nowrap"
                 aria-expanded={full}
               >
                 {full ? "Ocultar resultado" : "Ver resultado completo →"}
