@@ -8,6 +8,7 @@ import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import * as ct from "@/lib/db/checktudoConsultas";
 import * as subs from "@/lib/db/subscriptions";
 import { fetchChecktudoByPlate } from "@/lib/checktudo/client";
+import { makerCode } from "./makerCodes";
 
 export const FIPE_PRODUCT_CODE = 202;
 
@@ -15,6 +16,7 @@ export type FipePoint = { mes: number; ano: number; valor: number };
 export type FipeData = {
   // Identificação
   marca: string | null;
+  codigoMarca: number | null;     // código do fabricante pela tabela oficial (uso programático)
   modelo: string | null;
   modeloFipe: string | null;      // nome de modelo limpo da FIPE (ex.: "COROLLA")
   versao: string | null;          // versão completa (trim)
@@ -127,6 +129,7 @@ function extractFipe(data: unknown): FipeData {
   return {
     // Identificação
     marca: firstString(data, ["marca"]),
+    codigoMarca: makerCode(firstString(data, ["marca"])), // tabela oficial; sobrescreve o do payload
     modelo: firstString(data, ["modelo"]),
     modeloFipe: itemStr(fipe, "modelo"),
     versao: itemStr(geral, "versao") ?? itemStr(fipe, "versao") ?? firstString(data, ["versao"]),
