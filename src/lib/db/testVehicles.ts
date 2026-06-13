@@ -30,6 +30,7 @@ export type VehicleInput = {
   versaoFipe: string | null;
   valorAtual: number | null;
   photoCount: number;
+  photos: string | null; // JSON array of public photo URLs
 };
 
 export type VehicleRow = VehicleInput & { id: string; created_at: string; updated_at: string };
@@ -60,17 +61,18 @@ function bind(req: sql.Request, v: VehicleInput): sql.Request {
     .input("fipeId", sql.NVarChar(20), v.fipeId)
     .input("versaoFipe", sql.NVarChar(200), v.versaoFipe)
     .input("valorAtual", sql.Decimal(14, 2), v.valorAtual)
-    .input("photoCount", sql.Int, v.photoCount ?? 0);
+    .input("photoCount", sql.Int, v.photoCount ?? 0)
+    .input("photos", sql.NVarChar(sql.MAX), v.photos ?? null);
 }
 
 const COLS = `placa, marca, modelo, versao, ano_modelo, ano_fabricacao, chassi, num_motor,
   combustivel, cor_veiculo, tipo_veiculo, especie_veiculo, nacional, potencia, cilindradas,
   eixos, cap_max_tracao, capacidade_passageiro, caixa_cambio, num_carroceria, codigo_fipe,
-  fipe_id, versao_fipe, valor_atual, photo_count`;
+  fipe_id, versao_fipe, valor_atual, photo_count, photos`;
 const VALS = `@placa, @marca, @modelo, @versao, @anoModelo, @anoFabricacao, @chassi, @numMotor,
   @combustivel, @corVeiculo, @tipoVeiculo, @especieVeiculo, @nacional, @potencia, @cilindradas,
   @eixos, @capMaxTracao, @capacidadePassageiro, @caixaCambio, @numCarroceria, @codigoFipe,
-  @fipeId, @versaoFipe, @valorAtual, @photoCount`;
+  @fipeId, @versaoFipe, @valorAtual, @photoCount, @photos`;
 
 /** Insert a new vehicle for an owner; returns the new id. */
 export async function createVehicle(ownerId: string, v: VehicleInput): Promise<{ id: string }> {
@@ -93,7 +95,7 @@ export async function updateVehicle(id: string, ownerId: string, v: VehicleInput
               nacional=@nacional, potencia=@potencia, cilindradas=@cilindradas, eixos=@eixos,
               cap_max_tracao=@capMaxTracao, capacidade_passageiro=@capacidadePassageiro,
               caixa_cambio=@caixaCambio, num_carroceria=@numCarroceria, codigo_fipe=@codigoFipe,
-              fipe_id=@fipeId, versao_fipe=@versaoFipe, valor_atual=@valorAtual, photo_count=@photoCount,
+              fipe_id=@fipeId, versao_fipe=@versaoFipe, valor_atual=@valorAtual, photo_count=@photoCount, photos=@photos,
               updated_at=SYSUTCDATETIME()
             WHERE id=@id AND owner_id=@owner;`);
 }

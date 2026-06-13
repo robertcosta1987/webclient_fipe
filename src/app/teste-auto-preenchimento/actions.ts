@@ -7,6 +7,7 @@
 
 import { requireScope } from "@/lib/auth/server";
 import { runFipeConsult, type FipeData } from "@/lib/api/fipeConsult";
+import { uploadImageDataUrls } from "@/lib/storage/blob";
 import * as veh from "@/lib/db/testVehicles";
 
 export type AutoFillResult =
@@ -23,17 +24,22 @@ export async function autoFillPlate(placa: string): Promise<AutoFillResult> {
   return { ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", fipe: r.fipe, raw: r.raw };
 }
 
-export type SaveResult = { ok: true; id: string } | { ok: false; error: string };
+export type SaveResult = { ok: true; id: string; photoCount: number } | { ok: false; error: string };
 
-export async function saveVehicle(input: veh.VehicleInput, id?: string | null): Promise<SaveResult> {
+export async function saveVehicle(input: veh.VehicleInput, photoDataUrls: string[], id?: string | null): Promise<SaveResult> {
   let userId: string;
   try { ({ userId } = await requireScope()); }
   catch { return { ok: false, error: "Sessão expirada. Faça login novamente." }; }
   if (!input.placa && !input.chassi) return { ok: false, error: "Informe ao menos a placa ou o chassi." };
+
+  // Upload the photos to blob and store their public URLs with the vehicle.
+  const urls = await uploadImageDataUrls(photoDataUrls ?? []).catch(() => [] as string[]);
+  const toStore: veh.VehicleInput = { ...input, photoCount: urls.length, photos: urls.length ? JSON.stringify(urls) : null };
+
   try {
-    if (id) { await veh.updateVehicle(id, userId, input); return { ok: true, id }; }
-    const created = await veh.createVehicle(userId, input);
-    return { ok: true, id: created.id };
+    if (id) { await veh.updateVehicle(id, userId, toStore); return { ok: true, id, photoCount: urls.length }; }
+    const created = await veh.createVehicle(userId, toStore);
+    return { ok: true, id: created.id, photoCount: urls.length };
   } catch {
     return { ok: false, error: "Não foi possível salvar o veículo. Tente novamente." };
   }

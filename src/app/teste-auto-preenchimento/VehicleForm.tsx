@@ -140,16 +140,17 @@ export function VehicleForm() {
       fipeId: s(form.fipeId), versaoFipe: null,
       valorAtual: valor && Number.isFinite(Number(valor)) ? Number(valor) : null,
       photoCount: photos.length,
+      photos: null, // URLs são preenchidas no servidor após o upload
     };
   }
 
   function onSave() {
     setMsg(null);
     startSave(async () => {
-      const r = await saveVehicle(toInput(), savedId);
+      const r = await saveVehicle(toInput(), photos.map((p) => p.dataUrl), savedId);
       if (!r.ok) { setMsg({ ok: false, text: r.error }); return; }
       setSavedId(r.id); setLocked(true);
-      setMsg({ ok: true, text: "Veículo salvo." });
+      setMsg({ ok: true, text: `Veículo salvo${r.photoCount ? ` · ${r.photoCount} foto(s) enviada(s)` : ""}.` });
     });
   }
 
@@ -172,11 +173,28 @@ export function VehicleForm() {
 
   function addPhotos(files: FileList | null) {
     if (!files) return;
-    // Read as data URLs so they embed in the offer/PDF (no blob: cross-window issues).
+    // Resize + compress to keep payloads small (server-action body limit) and
+    // embed as JPEG data URLs (work in the offer/PDF and upload on save).
     for (const f of Array.from(files)) {
       if (!f.type.startsWith("image/")) continue;
       const reader = new FileReader();
-      reader.onload = () => setPhotos((p) => [...p, { dataUrl: String(reader.result), name: f.name }]);
+      reader.onload = () => {
+        const src = String(reader.result);
+        const img = new window.Image();
+        img.onload = () => {
+          const MAX = 1400;
+          let { width, height } = img;
+          if (width > MAX || height > MAX) { const s = MAX / Math.max(width, height); width = Math.round(width * s); height = Math.round(height * s); }
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          let dataUrl = src;
+          if (ctx) { ctx.drawImage(img, 0, 0, width, height); try { dataUrl = canvas.toDataURL("image/jpeg", 0.82); } catch { /* keep original */ } }
+          setPhotos((p) => [...p, { dataUrl, name: f.name }]);
+        };
+        img.onerror = () => setPhotos((p) => [...p, { dataUrl: src, name: f.name }]);
+        img.src = src;
+      };
       reader.readAsDataURL(f);
     }
   }
@@ -194,9 +212,12 @@ export function VehicleForm() {
       });
       if (!r.ok) { setAdErr(r.error); return; }
       setAnuncio(r.anuncio);
-      // Publish a shareable page (Azure static website) and surface the link.
-      const p = await publishAnuncio(buildAnuncioHtml(form, r.anuncio, photos, placaNorm, true));
-      if (p.ok) setShareUrl(p.url); else setShareErr(p.error);
+      // Publish a shareable page (Azure static website) — non-fatal: a failure
+      // here must never block the PDF/offer.
+      try {
+        const p = await publishAnuncio(buildAnuncioHtml(form, r.anuncio, photos, placaNorm, true));
+        if (p.ok) setShareUrl(p.url); else setShareErr(p.error);
+      } catch { setShareErr("Não foi possível publicar o link agora."); }
     });
   }
 
