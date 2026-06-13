@@ -89,6 +89,7 @@ export function VehicleForm() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareErr, setShareErr] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastFetched = useRef<string>("");
 
@@ -217,7 +218,7 @@ export function VehicleForm() {
 
   function onGerarAnuncio() {
     if (photos.length === 0) { setAdErr("Adicione ao menos 1 foto do veículo para gerar o anúncio."); return; }
-    setAdErr(null); setAnuncio(null); setShareUrl(null); setShareErr(null); setCopiedLink(false);
+    setAdErr(null); setAnuncio(null); setShareUrl(null); setShareErr(null); setCopiedLink(false); setShowShare(false);
     // Mês/ano de referência da FIPE = ponto mais recente do histórico (ex.: "06/2026").
     const lastPt = historico[historico.length - 1];
     const fipeReferencia = lastPt ? `${String(lastPt.mes).padStart(2, "0")}/${lastPt.ano}` : null;
@@ -250,6 +251,74 @@ export function VehicleForm() {
   }
 
   const copy = (t: string) => { navigator.clipboard?.writeText(t).catch(() => {}); };
+
+  // ── Compartilhamento ──────────────────────────────────────────────────
+  // Post completo (legenda + hashtags + link) para colar em qualquer rede.
+  function fullPost(a: Anuncio, link: string): string {
+    return [a.portais.social, a.hashtags.join(" "), link].filter(Boolean).join("\n\n");
+  }
+
+  // Converte as fotos (data: ou URL) em File[] para o compartilhamento nativo.
+  async function photosToFiles(): Promise<File[]> {
+    const out: File[] = [];
+    const base = placaNorm || "anuncio";
+    for (let i = 0; i < photos.length; i++) {
+      try {
+        const res = await fetch(photos[i].src);
+        const blob = await res.blob();
+        const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+        out.push(new File([blob], `placas360-${base}-${i + 1}.${ext}`, { type: blob.type || "image/jpeg" }));
+      } catch { /* ignora imagem que falhar (ex.: CORS) */ }
+    }
+    return out;
+  }
+
+  function downloadImages() {
+    const base = placaNorm || "anuncio";
+    photos.forEach((p, i) => {
+      const a = document.createElement("a");
+      a.href = p.src; a.download = `placas360-${base}-${i + 1}.jpg`;
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  }
+
+  // Compartilhamento nativo (celular): manda link + legenda + imagens direto
+  // para o app escolhido (Instagram/Facebook/WhatsApp). Sem senhas.
+  async function nativeShare() {
+    if (!anuncio) return;
+    const link = shareUrl || "";
+    const text = fullPost(anuncio, link);
+    const nav = navigator as Navigator & { canShare?: (d?: ShareData) => boolean };
+    try {
+      const files = await photosToFiles();
+      if (files.length && nav.canShare?.({ files })) { await navigator.share({ files, text, title: anuncio.titulo }); return; }
+      if (typeof navigator.share === "function") { await navigator.share({ title: anuncio.titulo, text, url: link || undefined }); return; }
+    } catch { return; /* usuário cancelou ou não suportado */ }
+    window.alert("Compartilhamento direto com imagens funciona no celular. No computador, use os botões WhatsApp/Facebook ou 'Copiar post completo' + 'Baixar imagens' para o Instagram.");
+  }
+
+  function shareWhatsApp() {
+    if (!anuncio) return;
+    const text = [anuncio.portais.whatsapp, shareUrl || ""].filter(Boolean).join("\n\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  }
+
+  function shareFacebook() {
+    if (!anuncio) return;
+    if (!shareUrl) { setAdErr("Aguarde o link compartilhável para publicar no Facebook."); return; }
+    const u = encodeURIComponent(shareUrl);
+    const q = encodeURIComponent(fullPost(anuncio, ""));
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${u}&quote=${q}`, "_blank", "noopener,width=720,height=640");
+  }
+
+  // Instagram não tem URL de publicação na web: copiamos a legenda e baixamos as
+  // imagens para o usuário criar o post no app. Nunca pedimos senha.
+  function shareInstagram() {
+    if (!anuncio) return;
+    copy(fullPost(anuncio, shareUrl || ""));
+    downloadImages();
+    window.alert("Legenda copiada e imagens baixadas. Abra o Instagram, crie a publicação com as imagens e cole a legenda.");
+  }
 
   const disabled = locked || saving;
 
@@ -473,6 +542,7 @@ export function VehicleForm() {
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button type="button" onClick={downloadAnuncioPdf} className="btn-primary">⬇ Baixar PDF</button>
+              <button type="button" onClick={() => setShowShare((v) => !v)} className="btn-ghost text-sm" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>↗ Compartilhar</button>
               {shareUrl ? (
                 <>
                   <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>🔗 Abrir link do anúncio</a>
@@ -487,6 +557,24 @@ export function VehicleForm() {
                 Fale Conosco · {CONTACT_PHONE_LABEL}
               </a>
             </div>
+
+            {showShare && (
+              <div className="surface p-4 space-y-3">
+                <h3 className="text-[11px] uppercase tracking-[0.14em] text-[var(--fg-muted)]">Compartilhar (link + imagens + post)</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={nativeShare} className="btn-primary text-sm">📲 Compartilhar com imagens (celular)</button>
+                  <button type="button" onClick={shareWhatsApp} className="btn-ghost text-sm" style={{ borderColor: "rgba(37,211,102,0.55)", color: "#25D366" }}>WhatsApp</button>
+                  <button type="button" onClick={shareFacebook} disabled={!shareUrl} title={!shareUrl ? "Aguarde o link compartilhável" : undefined} className="btn-ghost text-sm" style={{ borderColor: "rgba(24,119,242,0.6)", color: "#1877F2" }}>Facebook</button>
+                  <button type="button" onClick={shareInstagram} className="btn-ghost text-sm" style={{ borderColor: "rgba(214,41,118,0.6)", color: "#E1306C" }}>Instagram</button>
+                  <button type="button" onClick={() => copy(fullPost(anuncio, shareUrl || ""))} className="btn-ghost text-sm">Copiar post completo</button>
+                  <button type="button" onClick={downloadImages} className="btn-ghost text-sm">Baixar imagens</button>
+                </div>
+                <p className="text-[11px] text-[var(--fg-faint)]">
+                  Por segurança, nunca pedimos a senha das suas redes sociais. O compartilhamento usa os apps oficiais.
+                  No celular, &ldquo;Compartilhar com imagens&rdquo; envia link, legenda e fotos de uma vez. No Instagram, a legenda é copiada e as imagens baixadas para você publicar.
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-[var(--fg-faint)]">O telefone do botão Fale Conosco é um placeholder. Em breve: remoção de fundo das fotos e mockups.</p>
           </div>
         </div>
