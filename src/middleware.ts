@@ -17,6 +17,11 @@ function isPublic(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Programmatic API: authenticated by its own API key (Bearer / x-api-key),
+  // not the session cookie. Skip the login-redirect guard entirely.
+  if (pathname.startsWith("/api/v1/")) return NextResponse.next();
+
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySession(token, process.env.AUTH_SECRET ?? "");
 
