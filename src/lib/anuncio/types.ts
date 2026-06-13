@@ -38,3 +38,4 @@ export const AnuncioSchema = z.object({
 export type Anuncio = z.infer<typeof AnuncioSchema>;
 
 export type AnuncioResult = { ok: true; anuncio: Anuncio } | { ok: false; error: string };
+export type PublishResult = { ok: true; url: string } | { ok: false; error: string };

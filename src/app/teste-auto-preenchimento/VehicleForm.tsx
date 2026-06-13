@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { Plate } from "@/components/Plate";
 import { autoFillPlate, saveVehicle, removeVehicle } from "./actions";
-import { gerarAnuncio } from "./anuncio";
+import { gerarAnuncio, publishAnuncio } from "./anuncio";
 import type { Anuncio } from "@/lib/anuncio/types";
 import type { VehicleInput } from "@/lib/db/testVehicles";
 
@@ -81,6 +81,9 @@ export function VehicleForm() {
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [adErr, setAdErr] = useState<string | null>(null);
   const [genAd, startAd] = useTransition();
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareErr, setShareErr] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastFetched = useRef<string>("");
 
@@ -163,7 +166,7 @@ export function VehicleForm() {
   }
 
   function resetAll() {
-    setPlaca(""); setForm(EMPTY); setHistorico([]); setProcessed(null); setRaw(null); setPhotos([]); setAnuncio(null); setAdErr(null); setSavedId(null); setLocked(false);
+    setPlaca(""); setForm(EMPTY); setHistorico([]); setProcessed(null); setRaw(null); setPhotos([]); setAnuncio(null); setAdErr(null); setShareUrl(null); setShareErr(null); setSavedId(null); setLocked(false);
     lastFetched.current = "";
   }
 
@@ -180,7 +183,7 @@ export function VehicleForm() {
 
   function onGerarAnuncio() {
     if (photos.length === 0) { setAdErr("Adicione ao menos 1 foto do veículo para gerar o anúncio."); return; }
-    setAdErr(null); setAnuncio(null);
+    setAdErr(null); setAnuncio(null); setShareUrl(null); setShareErr(null); setCopiedLink(false);
     startAd(async () => {
       const r = await gerarAnuncio({
         placa: placaNorm || null, marca: form.marca || null, modelo: form.modelo || null, versao: form.versao || null,
@@ -191,6 +194,9 @@ export function VehicleForm() {
       });
       if (!r.ok) { setAdErr(r.error); return; }
       setAnuncio(r.anuncio);
+      // Publish a shareable page (Azure static website) and surface the link.
+      const p = await publishAnuncio(buildAnuncioHtml(form, r.anuncio, photos, placaNorm, true));
+      if (p.ok) setShareUrl(p.url); else setShareErr(p.error);
     });
   }
 
@@ -418,12 +424,21 @@ export function VehicleForm() {
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button type="button" onClick={downloadAnuncioPdf} className="btn-primary">⬇ Baixar PDF</button>
+              {shareUrl ? (
+                <>
+                  <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>🔗 Abrir link do anúncio</a>
+                  <button type="button" onClick={() => { copy(shareUrl); setCopiedLink(true); }} className="btn-ghost text-sm">{copiedLink ? "Link copiado!" : "Copiar link"}</button>
+                </>
+              ) : shareErr ? (
+                <span className="text-[12px]" style={{ color: "var(--danger)" }}>Link: {shareErr}</span>
+              ) : (
+                <span className="text-[12px] text-[var(--fg-faint)]">Publicando link compartilhável…</span>
+              )}
               <a href={`https://wa.me/${CONTACT_PHONE}`} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm inline-flex items-center gap-1.5" style={{ borderColor: "rgba(37,211,102,0.55)" }}>
                 Fale Conosco · {CONTACT_PHONE_LABEL}
               </a>
-              <span className="text-[11px] text-[var(--fg-faint)]">Telefone é um placeholder.</span>
             </div>
-            <p className="text-[11px] text-[var(--fg-faint)]">Em breve: remoção de fundo das fotos, mockups e link compartilhável (Azure).</p>
+            <p className="text-[11px] text-[var(--fg-faint)]">O telefone do botão Fale Conosco é um placeholder. Em breve: remoção de fundo das fotos e mockups.</p>
           </div>
         </div>
       )}
@@ -433,33 +448,41 @@ export function VehicleForm() {
 
 const BRL0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-/** Self-contained printable HTML for the generated ad (auto-opens print). */
-function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { dataUrl: string; name: string }[], placa: string): string {
+/** Self-contained HTML for the generated ad. `web=true` → shareable page (no
+ *  auto-print, with a Fale Conosco button); otherwise a printable PDF doc. */
+function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { dataUrl: string; name: string }[], placa: string, web = false): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
   const imgs = photos.map((p) => `<img src="${p.dataUrl}" alt="">`).join("");
   const bullets = a.destaques.map((d) => `<li>${esc(d)}</li>`).join("");
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(a.titulo)}</title>
+  const cta = web
+    ? `<a class="cta" href="https://wa.me/${CONTACT_PHONE}" target="_blank" rel="noopener">📞 Fale Conosco — ${CONTACT_PHONE_LABEL}</a>`
+    : `<div class="contact"><strong>Fale Conosco:</strong> ${CONTACT_PHONE_LABEL} (placeholder)</div>`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(a.titulo)}</title>
 <style>
   @page{size:A4;margin:14mm}*{box-sizing:border-box}
-  body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2233;font-size:12px;line-height:1.5;margin:0}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2233;font-size:13px;line-height:1.5;margin:0;${web ? "background:#f4f7fc;padding:18px" : ""}}
+  .wrap{${web ? "max-width:780px;margin:0 auto;background:#fff;border-radius:12px;padding:22px;box-shadow:0 10px 40px -20px rgba(16,24,40,.35)" : ""}}
   .bar{border-bottom:3px solid #1f6feb;padding-bottom:8px;margin-bottom:12px}
   .brand{font-weight:800;color:#1f6feb;font-size:16px}
-  h1{font-size:20px;color:#0b2a4a;margin:6px 0 2px}.sub{color:#5a6b80}
-  .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.grid img{width:32%;height:120px;object-fit:cover;border-radius:6px}
+  h1{font-size:22px;color:#0b2a4a;margin:6px 0 2px}.sub{color:#5a6b80}
+  .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.grid img{width:32%;height:130px;object-fit:cover;border-radius:6px}
   h2{font-size:13px;color:#0b2a4a;border-bottom:1px solid #e4ebf3;padding-bottom:3px;margin:14px 0 6px}
   ul{margin:6px 0 6px 18px}.price{color:#0b2a4a;font-weight:600}.tags{color:#1f6feb;font-size:11px;margin-top:6px}
   .contact{margin-top:14px;padding:10px 12px;background:#eef6ff;border-left:4px solid #1f6feb;border-radius:0 6px 6px 0}
+  .cta{display:inline-block;margin-top:14px;background:#25D366;color:#fff;text-decoration:none;font-weight:700;padding:11px 18px;border-radius:8px}
   footer{margin-top:16px;border-top:1px solid #e4ebf3;padding-top:8px;color:#8a97a8;font-size:10px}
-</style></head><body onload="window.print()">
-  <div class="bar"><span class="brand">Placas360</span></div>
-  <h1>${esc(a.titulo)}</h1><div class="sub">${esc(a.subtitulo)}${placa ? ` · Placa ${esc(placa)}` : ""}</div>
-  ${imgs ? `<div class="grid">${imgs}</div>` : ""}
-  <h2>Destaques</h2><ul>${bullets}</ul>
-  <h2>Descrição</h2><p>${esc(a.descricao).replace(/\n/g, "<br>")}</p>
-  <p class="price">${esc(a.precoTexto)}</p>
-  <p class="tags">${esc(a.hashtags.join(" "))}</p>
-  <div class="contact"><strong>Fale Conosco:</strong> ${CONTACT_PHONE_LABEL} (placeholder)</div>
-  <footer>Placas360 · Anúncio gerado automaticamente a partir dos dados do veículo${form.marca ? ` (${esc(form.marca)})` : ""}.</footer>
+</style></head><body${web ? "" : ' onload="window.print()"'}>
+  <div class="wrap">
+    <div class="bar"><span class="brand">Placas360</span></div>
+    <h1>${esc(a.titulo)}</h1><div class="sub">${esc(a.subtitulo)}${placa ? ` · Placa ${esc(placa)}` : ""}</div>
+    ${imgs ? `<div class="grid">${imgs}</div>` : ""}
+    <h2>Destaques</h2><ul>${bullets}</ul>
+    <h2>Descrição</h2><p>${esc(a.descricao).replace(/\n/g, "<br>")}</p>
+    <p class="price">${esc(a.precoTexto)}</p>
+    <p class="tags">${esc(a.hashtags.join(" "))}</p>
+    ${cta}
+    <footer>Placas360 · Anúncio gerado automaticamente a partir dos dados do veículo${form.marca ? ` (${esc(form.marca)})` : ""}.</footer>
+  </div>
 </body></html>`;
 }
 const ml = (p: Pt) => `${String(p.mes).padStart(2, "0")}/${String(p.ano).slice(2)}`;

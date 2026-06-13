@@ -4,8 +4,9 @@
 // Claude (ANTHROPIC_API_KEY). Fase 1: só texto — remoção de fundo, mockups e link
 // Azure entram depois. Não inventa dados que não foram fornecidos.
 
+import { randomUUID } from "node:crypto";
 import { requireScope } from "@/lib/auth/server";
-import { AnuncioSchema, type AdInput, type AnuncioResult } from "@/lib/anuncio/types";
+import { AnuncioSchema, type AdInput, type AnuncioResult, type PublishResult } from "@/lib/anuncio/types";
 
 const MODEL = process.env.ANUNCIO_MODEL || "claude-sonnet-4-6";
 
@@ -48,5 +49,30 @@ export async function gerarAnuncio(input: AdInput): Promise<AnuncioResult> {
     return { ok: true, anuncio: parsed.data };
   } catch {
     return { ok: false, error: "Erro ao gerar o anúncio." };
+  }
+}
+
+/** Publica o HTML da oferta no Azure Storage static website e devolve o link
+ *  público compartilhável. */
+export async function publishAnuncio(html: string): Promise<PublishResult> {
+  try { await requireScope(); } catch { return { ok: false, error: "Sessão expirada." }; }
+  const sas = process.env.ANUNCIO_BLOB_SAS;
+  const blob = process.env.ANUNCIO_BLOB_ENDPOINT;
+  const web = process.env.ANUNCIO_WEB_ENDPOINT;
+  if (!sas || !blob || !web) return { ok: false, error: "Hospedagem de anúncios não configurada." };
+  if (!html || html.length > 12_000_000) return { ok: false, error: "Conteúdo do anúncio inválido ou grande demais." };
+  const name = `a/${randomUUID()}.html`;
+  try {
+    // Upload to the $web container via the Azure Blob REST API + SAS (no SDK).
+    const putUrl = `${blob.replace(/\/$/, "")}/$web/${name}?${sas}`;
+    const res = await fetch(putUrl, {
+      method: "PUT",
+      headers: { "x-ms-blob-type": "BlockBlob", "x-ms-blob-content-type": "text/html; charset=utf-8", "x-ms-blob-cache-control": "public, max-age=300" },
+      body: html,
+    });
+    if (!res.ok) return { ok: false, error: `Falha ao publicar o anúncio (HTTP ${res.status}).` };
+    return { ok: true, url: `${web.replace(/\/$/, "")}/${name}` };
+  } catch {
+    return { ok: false, error: "Não foi possível publicar o anúncio agora." };
   }
 }
