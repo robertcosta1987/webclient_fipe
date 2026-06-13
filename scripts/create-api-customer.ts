@@ -58,6 +58,10 @@ async function main() {
       subId = r.recordset[0].id; console.log("• Assinatura criada:", subId, "·", r.recordset[0].sub_key, "· plano ondemand (sem teto)");
     }
 
+    // Enable programmatic (API-key) access for THIS subscription only.
+    await pool.request().input("s", sql.UniqueIdentifier, subId)
+      .query(`IF COL_LENGTH('subscriptions','api_access') IS NOT NULL UPDATE subscriptions SET api_access=1 WHERE id=@s`);
+
     // 2. Login/metering user (API-only — login effectively disabled).
     let userId: string;
     const existingUser = await pool.request().input("e", sql.NVarChar(254), email)

@@ -44,17 +44,25 @@ export async function countUsers(): Promise<number> {
 
 // ── Programmatic API keys (migration 0016) ───────────────────────────────────
 export type ApiUserContext = { id: string; email: string; subscriptionId: string | null };
+// Resolved API caller: also carries the key prefix (for logging) and whether the
+// subscription is API-enabled (migration 0017 — programmatic access is gated).
+export type ApiCaller = ApiUserContext & { apiKeyPrefix: string | null; apiAccess: boolean };
 
-/** Resolve an active user (+ its subscription) by the SHA-256 hash of its API
- *  key. Returns null if no active user holds that key. */
-export async function findByApiKeyHash(hash: string): Promise<ApiUserContext | null> {
+/** Resolve an active user (+ subscription, key prefix, api_access) by the
+ *  SHA-256 hash of its API key. Returns null if no active user holds that key. */
+export async function findByApiKeyHash(hash: string): Promise<ApiCaller | null> {
   const p = await getPool();
   const r = await p.request()
     .input("h", sql.NVarChar(64), hash)
-    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, email, CAST(subscription_id AS NVARCHAR(40)) AS subscription_id
-            FROM users WHERE api_key_hash = @h AND status = 'active'`);
+    .query(`SELECT TOP 1 CAST(u.id AS NVARCHAR(40)) AS id, u.email, u.api_key_prefix,
+                   CAST(u.subscription_id AS NVARCHAR(40)) AS subscription_id,
+                   COALESCE(s.api_access, 0) AS api_access
+            FROM users u LEFT JOIN subscriptions s ON s.id = u.subscription_id
+            WHERE u.api_key_hash = @h AND u.status = 'active'`);
   const row = r.recordset[0];
-  return row ? { id: row.id, email: row.email, subscriptionId: row.subscription_id ?? null } : null;
+  return row
+    ? { id: row.id, email: row.email, subscriptionId: row.subscription_id ?? null, apiKeyPrefix: row.api_key_prefix ?? null, apiAccess: Boolean(row.api_access) }
+    : null;
 }
 
 /** The user (+ subscription) for an e-mail — used when issuing a key. */
