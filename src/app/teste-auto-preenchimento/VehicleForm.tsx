@@ -6,6 +6,7 @@ import { Plate } from "@/components/Plate";
 import { autoFillPlate, saveVehicle, removeVehicle } from "./actions";
 import { gerarAnuncio, publishAnuncio } from "./anuncio";
 import type { Anuncio } from "@/lib/anuncio/types";
+import { PLACAS360_LOGO_DATA_URL } from "@/lib/anuncio/logo";
 import type { VehicleInput } from "@/lib/db/testVehicles";
 
 // Telefone de contato no anúncio — placeholder até vir do cliente.
@@ -510,7 +511,8 @@ function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { src: string; na
   @page{size:A4;margin:14mm}*{box-sizing:border-box}
   body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2233;font-size:13px;line-height:1.5;margin:0;${web ? "background:#f4f7fc;padding:18px" : ""}}
   .wrap{${web ? "max-width:780px;margin:0 auto;background:#fff;border-radius:12px;padding:22px;box-shadow:0 10px 40px -20px rgba(16,24,40,.35)" : ""}}
-  .bar{border-bottom:3px solid #1f6feb;padding-bottom:8px;margin-bottom:12px}
+  .bar{border-bottom:3px solid #1f6feb;padding-bottom:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .bar img{height:34px;width:auto;display:block}
   .brand{font-weight:800;color:#1f6feb;font-size:16px}
   h1{font-size:22px;color:#0b2a4a;margin:6px 0 2px}.sub{color:#5a6b80}
   .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.grid img{width:32%;height:130px;object-fit:cover;border-radius:6px}
@@ -521,7 +523,7 @@ function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { src: string; na
   footer{margin-top:16px;border-top:1px solid #e4ebf3;padding-top:8px;color:#8a97a8;font-size:10px}
 </style></head><body${web ? "" : ' onload="window.print()"'}>
   <div class="wrap">
-    <div class="bar"><span class="brand">Placas360</span></div>
+    <div class="bar"><img src="${PLACAS360_LOGO_DATA_URL}" alt="Placas360"></div>
     <h1>${esc(a.titulo)}</h1><div class="sub">${esc(a.subtitulo)}${placa ? ` · Placa ${esc(placa)}` : ""}</div>
     ${imgs ? `<div class="grid">${imgs}</div>` : ""}
     <h2>Destaques</h2><ul>${bullets}</ul>
