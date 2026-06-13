@@ -98,7 +98,7 @@ export function VehicleForm() {
         chassi: U(d.chassi),
         numMotor: U(d.numMotor), combustivel: U(d.combustivel), corVeiculo: U(d.corVeiculo),
         tipoVeiculo: U(d.tipoVeiculo), especieVeiculo: U(d.especieVeiculo),
-        procedencia: (!d.nacional || !d.nacional.trim() || /import/i.test(d.nacional)) ? "IMPORTADO" : "NACIONAL",
+        procedencia: d.procedencia ?? "NACIONAL",
         municipio: U(d.municipio),
         potencia: U(d.potencia), cilindradas: U(d.cilindradas), eixos: U(d.eixos),
         pbtKg: pbtToKg(d.pbt),

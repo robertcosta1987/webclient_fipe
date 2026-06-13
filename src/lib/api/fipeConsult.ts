@@ -30,7 +30,8 @@ export type FipeData = {
   tipoVeiculo: string | null;
   especieVeiculo: string | null;
   nacional: string | null;
-  codigoProcedencia: number | null; // 74 = NACIONAL, 76 = IMPORTADO (derivado de `nacional`)
+  procedencia: "NACIONAL" | "IMPORTADO"; // derivada de `nacional`
+  codigoProcedencia: number | null;      // 74 = NACIONAL, 76 = IMPORTADO
   uf: string | null;                // UF do consult cadastral (65/66) em cache
   municipio: string | null;         // "MUNICÍPIO-UF" (cadastral 65/66 em cache), quando disponível
   // Ficha técnica
@@ -131,6 +132,7 @@ function extractFipe(data: unknown): FipeData {
   // fills them from a cached consult. Município is shown as "MUNICÍPIO-UF".
   const muni = firstString(data, ["municipio"]);
   const uf = firstString(data, ["uf", "estado"]) ?? firstString(data, ["ufFaturado"]);
+  const imported = isImported(firstString(data, ["nacional", "nacionalidade"]));
   const itemStr = (o: Record<string, unknown> | null, k: string): string | null =>
     o && o[k] != null && String(o[k]).trim() !== "" ? String(o[k]).trim() : null;
   return {
@@ -150,7 +152,8 @@ function extractFipe(data: unknown): FipeData {
     tipoVeiculo: firstString(data, ["tipoVeiculo"]),
     especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
     nacional: firstString(data, ["nacional", "nacionalidade"]),
-    codigoProcedencia: isImported(firstString(data, ["nacional", "nacionalidade"])) ? 76 : 74,
+    procedencia: imported ? "IMPORTADO" : "NACIONAL",
+    codigoProcedencia: imported ? 76 : 74,
     uf: uf,
     municipio: muni ? (uf ? `${muni}-${uf}` : muni) : null,
     // Ficha técnica
