@@ -57,19 +57,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     productCode: 202, outcome: "auth_failed", source: null, charged: false,
     errorCode: null, httpStatus: null, durationMs: null, consultaId: null, ...info,
   };
-  const done = (extra: Partial<ApiRequestLog>, status: number) => {
-    void logApiRequest({ ...base, ...extra, httpStatus: status, durationMs: Date.now() - startedAt });
-  };
+  // Await the audit-log write BEFORE responding — on serverless the function can
+  // suspend after the response, dropping any fire-and-forget work.
+  const done = (extra: Partial<ApiRequestLog>, status: number) =>
+    logApiRequest({ ...base, ...extra, httpStatus: status, durationMs: Date.now() - startedAt });
 
   const rawKey = readKey(req);
   if (!rawKey) {
-    done({ outcome: "auth_failed", errorCode: "missing_key" }, 401);
+    await done({ outcome: "auth_failed", errorCode: "missing_key" }, 401);
     return json({ ok: false, error: "Chave de API ausente. Envie 'Authorization: Bearer <chave>'." }, 401);
   }
 
   const ctx = await findByApiKeyHash(hashApiKey(rawKey)).catch(() => null);
   if (!ctx) {
-    done({ outcome: "auth_failed", errorCode: "invalid_key" }, 401);
+    await done({ outcome: "auth_failed", errorCode: "invalid_key" }, 401);
     return json({ ok: false, error: "Chave de API inválida." }, 401);
   }
   base.subscriptionId = ctx.subscriptionId;
@@ -77,17 +78,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
   base.apiKeyPrefix = ctx.apiKeyPrefix;
 
   if (!ctx.apiAccess) {
-    done({ outcome: "auth_failed", errorCode: "api_disabled" }, 403);
+    await done({ outcome: "auth_failed", errorCode: "api_disabled" }, 403);
     return json({ ok: false, error: "Esta conta não está habilitada para acesso programático." }, 403);
   }
 
   const r = await runFipeConsult({ userId: ctx.id, placa });
   if (!r.ok) {
-    done({ outcome: "error", errorCode: "consult_failed" }, r.status);
+    await done({ outcome: "error", errorCode: "consult_failed" }, r.status);
     return json({ ok: false, error: r.error }, r.status);
   }
 
   // Charged only when it's a completed LIVE consult (cache hits are free).
-  done({ outcome: "ok", source: r.fromCache ? "cache" : "live", charged: !r.fromCache, consultaId: r.consultaId, placa: r.placa }, 200);
+  await done({ outcome: "ok", source: r.fromCache ? "cache" : "live", charged: !r.fromCache, consultaId: r.consultaId, placa: r.placa }, 200);
   return json({ ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", consultaId: r.consultaId, fipe: r.fipe }, 200);
 }
