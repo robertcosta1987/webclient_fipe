@@ -38,19 +38,33 @@ Authorization: Bearer <key>      # or:  x-api-key: <key>
   "fipe": {
     "marca": "TOYOTA",
     "modelo": "CCROSS XRV HYBRID",
+    "versao": "XRV 1.8 16v Híbrido Aut.",
     "anoModelo": "2024",
     "anoFabricacao": "2023",
     "chassi": "9BRKYAAG2R0667645",
     "numMotor": "2V66811",
     "combustivel": "GAS/AL/ELE",
+    "corVeiculo": "PRETA",
+    "tipoVeiculo": "UTILITARIO",
+    "especieVeiculo": "MISTO",
+    "nacional": "Nacional",
+    "potencia": "122",
+    "cilindradas": "1798",
+    "eixos": "2",
+    "capMaxTracao": "226",
+    "capacidadePassageiro": "5",
+    "caixaCambio": "7WA23F00947",
+    "numCarroceria": null,
     "codigoFipe": "22004",
+    "fipeId": "22004",
+    "versaoFipe": "CROSS XRV 1.8 16V AUT. (HÍBRIDO)",
     "valorAtual": 161936,
     "historico": [{ "mes": 6, "ano": 2026, "valor": 161936 }]
   }
 }
 ```
 
-`valorAtual` is in **reais (integer)**. `source` is `live` (new consult) or `cache` (reused, not charged). Any field may be `null` if the vendor doesn't return it.
+`valorAtual` is in **reais (integer)**; the technical fields (`potencia`, `cilindradas`, …) are strings as the vendor returns them. `source` is `live` (new consult) or `cache` (reused, not charged). **Any field may be `null`** when the vendor doesn't return it for a given plate. `versao` is the full trim; `versaoFipe` is the FIPE-table version.
 
 ## Errors
 
