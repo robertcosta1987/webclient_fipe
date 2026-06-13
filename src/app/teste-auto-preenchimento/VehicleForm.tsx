@@ -12,19 +12,19 @@ type Field = keyof FormState;
 type FormState = {
   marca: string; modelo: string; versao: string; anoFabricacao: string; anoModelo: string;
   chassi: string; numMotor: string; combustivel: string; corVeiculo: string; tipoVeiculo: string;
-  especieVeiculo: string; nacional: string; potencia: string; cilindradas: string; eixos: string;
+  especieVeiculo: string; procedencia: string; potencia: string; cilindradas: string; eixos: string;
   pbtKg: string; capMaxTracao: string; capacidadePassageiro: string; caixaCambio: string; numCarroceria: string;
   codigoFipe: string; fipeId: string; valorAtual: string;
 };
 
 const EMPTY: FormState = {
   marca: "", modelo: "", versao: "", anoFabricacao: "", anoModelo: "", chassi: "", numMotor: "",
-  combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", nacional: "", potencia: "",
+  combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", procedencia: "", potencia: "",
   cilindradas: "", eixos: "", pbtKg: "", capMaxTracao: "", capacidadePassageiro: "", caixaCambio: "",
   numCarroceria: "", codigoFipe: "", fipeId: "", valorAtual: "",
 };
 
-const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boolean; years?: boolean }[] }[] = [
+const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boolean; years?: boolean; select?: string[] }[] }[] = [
   { title: "Identificação", fields: [
     { key: "marca", label: "Marca" },
     { key: "modelo", label: "Modelo (Modelo + Versão)", wide: true },
@@ -33,7 +33,7 @@ const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boo
     { key: "chassi", label: "Chassi" }, { key: "numMotor", label: "Nº do motor" },
     { key: "combustivel", label: "Combustível" }, { key: "corVeiculo", label: "Cor" },
     { key: "tipoVeiculo", label: "Tipo" }, { key: "especieVeiculo", label: "Espécie" },
-    { key: "nacional", label: "Origem" },
+    { key: "procedencia", label: "Procedência", select: ["NACIONAL", "IMPORTADO"] },
   ] },
   { title: "Ficha técnica", fields: [
     { key: "potencia", label: "Potência (cv)" }, { key: "cilindradas", label: "Cilindradas (cc)" },
@@ -96,7 +96,8 @@ export function VehicleForm() {
         anoFabricacao: U(d.anoFabricacao), anoModelo: U(d.anoModelo),
         chassi: U(d.chassi),
         numMotor: U(d.numMotor), combustivel: U(d.combustivel), corVeiculo: U(d.corVeiculo),
-        tipoVeiculo: U(d.tipoVeiculo), especieVeiculo: U(d.especieVeiculo), nacional: U(d.nacional),
+        tipoVeiculo: U(d.tipoVeiculo), especieVeiculo: U(d.especieVeiculo),
+        procedencia: (!d.nacional || !d.nacional.trim() || /import/i.test(d.nacional)) ? "IMPORTADO" : "NACIONAL",
         potencia: U(d.potencia), cilindradas: U(d.cilindradas), eixos: U(d.eixos),
         pbtKg: pbtToKg(d.pbt),
         capMaxTracao: U(d.capMaxTracao), capacidadePassageiro: U(d.capacidadePassageiro),
@@ -118,7 +119,7 @@ export function VehicleForm() {
       placa: placaNorm || null, marca: s(form.marca), modelo: s(form.modelo), versao: s(form.versao),
       anoFabricacao: s(form.anoFabricacao), anoModelo: s(form.anoModelo), chassi: s(form.chassi),
       numMotor: s(form.numMotor), combustivel: s(form.combustivel), corVeiculo: s(form.corVeiculo),
-      tipoVeiculo: s(form.tipoVeiculo), especieVeiculo: s(form.especieVeiculo), nacional: s(form.nacional),
+      tipoVeiculo: s(form.tipoVeiculo), especieVeiculo: s(form.especieVeiculo), nacional: s(form.procedencia),
       potencia: s(form.potencia), cilindradas: s(form.cilindradas), eixos: s(form.eixos),
       capMaxTracao: s(form.capMaxTracao), capacidadePassageiro: s(form.capacidadePassageiro),
       caixaCambio: s(form.caixaCambio), numCarroceria: s(form.numCarroceria), codigoFipe: s(form.codigoFipe),
@@ -212,6 +213,13 @@ export function VehicleForm() {
                       style={{ textTransform: "uppercase" }}
                     />
                   </div>
+                ) : f.select ? (
+                  <select
+                    id={`tap-${f.key}`} value={form[f.key]} disabled={disabled}
+                    onChange={(e) => set(f.key, e.target.value)} className="input"
+                  >
+                    {f.select.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
                 ) : (
                   <input
                     id={`tap-${f.key}`} value={form[f.key]} disabled={disabled}

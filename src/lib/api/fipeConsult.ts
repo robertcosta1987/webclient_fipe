@@ -30,6 +30,7 @@ export type FipeData = {
   tipoVeiculo: string | null;
   especieVeiculo: string | null;
   nacional: string | null;
+  codigoProcedencia: number | null; // 74 = NACIONAL, 76 = IMPORTADO (derivado de `nacional`)
   // Ficha técnica
   potencia: string | null;
   cilindradas: string | null;
@@ -143,6 +144,7 @@ function extractFipe(data: unknown): FipeData {
     tipoVeiculo: firstString(data, ["tipoVeiculo"]),
     especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
     nacional: firstString(data, ["nacional", "nacionalidade"]),
+    codigoProcedencia: isImported(firstString(data, ["nacional", "nacionalidade"])) ? 76 : 74,
     // Ficha técnica
     potencia: firstString(data, ["potencia", "potenciaMotor"]),
     cilindradas: firstString(data, ["cilindradas"]),
@@ -206,6 +208,12 @@ function firstNumber(data: unknown, keys: string[]): number | null {
 // Fuel code: match the first 3 letters of the `combustivel` text (accent-
 // insensitive) to a numeric code for programmatic use. No match → null.
 const FUEL_CODE: Record<string, number> = { gas: 1, alc: 2, die: 3, fle: 4, hib: 5, ele: 6, gnv: 7 };
+// Procedência: imported when `nacional` is empty/absent or says "import…";
+// otherwise national. (74 = NACIONAL, 76 = IMPORTADO.)
+function isImported(nacional: string | null): boolean {
+  return !nacional || nacional.trim() === "" || /import/i.test(nacional);
+}
+
 function fuelCode(combustivel: string | null): number | null {
   if (!combustivel) return null;
   // NFD + strip non-letters also removes accents (combining marks). e.g.
