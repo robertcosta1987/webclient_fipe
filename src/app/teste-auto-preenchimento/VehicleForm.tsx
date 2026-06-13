@@ -72,7 +72,7 @@ export function VehicleForm() {
   const [historico, setHistorico] = useState<Pt[]>([]);
   const [processed, setProcessed] = useState<unknown>(null);
   const [raw, setRaw] = useState<unknown>(null);
-  const [photos, setPhotos] = useState<{ dataUrl: string; name: string }[]>([]);
+  const [photos, setPhotos] = useState<{ src: string; name: string }[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -122,7 +122,16 @@ export function VehicleForm() {
       setHistorico(Array.isArray(d.historico) ? d.historico : []);
       setProcessed({ placa: r.placa, source: r.source, fipe: r.fipe }); // saída entregue ao cliente (enriquecida)
       setRaw(r.raw ?? null);
-      setMsg({ ok: true, text: `Preenchido pela placa ${r.placa} (${r.source === "cache" ? "cache" : "consulta nova"}).` });
+      // Restore a previously saved vehicle for this plate (with its photos).
+      if (r.saved) {
+        setPhotos(r.saved.photos.map((u) => ({ src: u, name: "" })));
+        setSavedId(r.saved.id);
+        setLocked(true);
+      } else {
+        setPhotos([]); setSavedId(null); setLocked(false);
+      }
+      const savedTxt = r.saved ? ` · veículo salvo (${r.saved.photos.length} foto(s))` : "";
+      setMsg({ ok: true, text: `Preenchido pela placa ${r.placa} (${r.source === "cache" ? "cache" : "consulta nova"})${savedTxt}.` });
     });
   }
 
@@ -147,7 +156,7 @@ export function VehicleForm() {
   function onSave() {
     setMsg(null);
     startSave(async () => {
-      const r = await saveVehicle(toInput(), photos.map((p) => p.dataUrl), savedId);
+      const r = await saveVehicle(toInput(), photos.map((p) => p.src), savedId);
       if (!r.ok) { setMsg({ ok: false, text: r.error }); return; }
       setSavedId(r.id); setLocked(true);
       setMsg({ ok: true, text: `Veículo salvo${r.photoCount ? ` · ${r.photoCount} foto(s) enviada(s)` : ""}.` });
@@ -190,9 +199,9 @@ export function VehicleForm() {
           const ctx = canvas.getContext("2d");
           let dataUrl = src;
           if (ctx) { ctx.drawImage(img, 0, 0, width, height); try { dataUrl = canvas.toDataURL("image/jpeg", 0.82); } catch { /* keep original */ } }
-          setPhotos((p) => [...p, { dataUrl, name: f.name }]);
+          setPhotos((p) => [...p, { src: dataUrl, name: f.name }]);
         };
-        img.onerror = () => setPhotos((p) => [...p, { dataUrl: src, name: f.name }]);
+        img.onerror = () => setPhotos((p) => [...p, { src, name: f.name }]);
         img.src = src;
       };
       reader.readAsDataURL(f);
@@ -325,7 +334,7 @@ export function VehicleForm() {
             {photos.map((ph, i) => (
               <div key={i} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ph.dataUrl} alt={ph.name} className="w-full h-24 object-cover rounded-md border" style={{ borderColor: "var(--hairline)" }} />
+                <img src={ph.src} alt={ph.name} className="w-full h-24 object-cover rounded-md border" style={{ borderColor: "var(--hairline)" }} />
                 {!locked && (
                   <button type="button" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full text-[12px] leading-none"
@@ -412,7 +421,7 @@ export function VehicleForm() {
             {photos.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {photos.map((ph, i) => <img key={i} src={ph.dataUrl} alt={ph.name} className="w-full h-20 object-cover rounded-md" />)}
+                {photos.map((ph, i) => <img key={i} src={ph.src} alt={ph.name} className="w-full h-20 object-cover rounded-md" />)}
               </div>
             )}
 
@@ -471,9 +480,9 @@ const BRL0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL"
 
 /** Self-contained HTML for the generated ad. `web=true` → shareable page (no
  *  auto-print, with a Fale Conosco button); otherwise a printable PDF doc. */
-function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { dataUrl: string; name: string }[], placa: string, web = false): string {
+function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { src: string; name: string }[], placa: string, web = false): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
-  const imgs = photos.map((p) => `<img src="${p.dataUrl}" alt="">`).join("");
+  const imgs = photos.map((p) => `<img src="${p.src}" alt="">`).join("");
   const bullets = a.destaques.map((d) => `<li>${esc(d)}</li>`).join("");
   const cta = web
     ? `<a class="cta" href="https://wa.me/${CONTACT_PHONE}" target="_blank" rel="noopener">📞 Fale Conosco — ${CONTACT_PHONE_LABEL}</a>`

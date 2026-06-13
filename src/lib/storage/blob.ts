@@ -12,13 +12,17 @@ export function blobConfigured(): boolean {
   return Boolean(SAS && BLOB && WEB);
 }
 
-/** Upload image data URLs; returns the public URLs (skips any that fail). */
+/** Upload image data URLs; returns public URLs (in order). Items that are
+ *  already https URLs (previously saved photos) are kept as-is — not re-uploaded
+ *  — so re-saving a loaded vehicle preserves its photos. */
 export async function uploadImageDataUrls(dataUrls: string[]): Promise<string[]> {
-  if (!blobConfigured()) return [];
   const folder = randomUUID();
   const urls: string[] = [];
   for (let i = 0; i < dataUrls.length; i++) {
-    const m = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(dataUrls[i] ?? "");
+    const item = dataUrls[i] ?? "";
+    if (/^https?:\/\//i.test(item)) { urls.push(item); continue; } // already saved
+    if (!blobConfigured()) continue;
+    const m = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(item);
     if (!m) continue;
     const ct = m[1];
     const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : "jpg";

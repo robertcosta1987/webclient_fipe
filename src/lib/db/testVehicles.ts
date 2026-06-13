@@ -100,6 +100,21 @@ export async function updateVehicle(id: string, ownerId: string, v: VehicleInput
             WHERE id=@id AND owner_id=@owner;`);
 }
 
+/** Most recent saved vehicle for a plate (owner-scoped) — id + stored photo URLs. */
+export async function getByPlaca(ownerId: string, placa: string): Promise<{ id: string; photos: string[] } | null> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .input("placa", sql.NVarChar(10), placa)
+    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, photos FROM test_vehicles
+            WHERE owner_id=@owner AND placa=@placa ORDER BY updated_at DESC`);
+  const row = r.recordset[0];
+  if (!row) return null;
+  let photos: string[] = [];
+  try { const v = row.photos ? JSON.parse(row.photos) : []; if (Array.isArray(v)) photos = v.filter((x) => typeof x === "string"); } catch { /* ignore */ }
+  return { id: row.id as string, photos };
+}
+
 export async function deleteVehicle(id: string, ownerId: string): Promise<void> {
   const p = await getPool();
   await p.request().input("id", sql.UniqueIdentifier, id).input("owner", sql.UniqueIdentifier, ownerId)

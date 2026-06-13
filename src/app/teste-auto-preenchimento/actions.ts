@@ -11,7 +11,7 @@ import { uploadImageDataUrls } from "@/lib/storage/blob";
 import * as veh from "@/lib/db/testVehicles";
 
 export type AutoFillResult =
-  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown }
+  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown; saved: { id: string; photos: string[] } | null }
   | { ok: false; error: string };
 
 export async function autoFillPlate(placa: string): Promise<AutoFillResult> {
@@ -21,7 +21,9 @@ export async function autoFillPlate(placa: string): Promise<AutoFillResult> {
 
   const r = await runFipeConsult({ userId, placa });
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", fipe: r.fipe, raw: r.raw };
+  // Restore a previously saved vehicle (with its photos) for this plate, if any.
+  const saved = await veh.getByPlaca(userId, r.placa).catch(() => null);
+  return { ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", fipe: r.fipe, raw: r.raw, saved };
 }
 
 export type SaveResult = { ok: true; id: string; photoCount: number } | { ok: false; error: string };
