@@ -426,7 +426,7 @@ export function VehicleForm() {
       {anuncio && (
         <div className="fixed inset-0 z-50 overflow-y-auto p-4" style={{ background: "rgba(0,0,0,0.6)" }}
           onClick={() => setAnuncio(null)} role="dialog" aria-modal="true">
-          <div className="glass mx-auto my-4 max-w-3xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+          <div className="surface modal-pop mx-auto my-4 max-w-3xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="chip">Anúncio gerado por IA</span>
