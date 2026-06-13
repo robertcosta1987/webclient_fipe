@@ -23,6 +23,7 @@ export type FipeData = {
   chassi: string | null;
   numMotor: string | null;
   combustivel: string | null;
+  codigoCombustivel: number | null; // derivado do combustível (1ª 3 letras) — uso programático
   corVeiculo: string | null;
   tipoVeiculo: string | null;
   especieVeiculo: string | null;
@@ -134,6 +135,7 @@ function extractFipe(data: unknown): FipeData {
     chassi: firstString(data, ["chassi", "chassis", "vin"]),
     numMotor: firstString(data, ["numMotor", "nummotor", "numeroMotor"]),
     combustivel: firstString(data, ["combustivel"]),
+    codigoCombustivel: fuelCode(firstString(data, ["combustivel"])),
     corVeiculo: firstString(data, ["corVeiculo", "cor", "corPredominante", "corPrincipal", "corDoVeiculo"]),
     tipoVeiculo: firstString(data, ["tipoVeiculo"]),
     especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
@@ -196,6 +198,17 @@ function firstNumber(data: unknown, keys: string[]): number | null {
     if (want.includes(k.toLowerCase())) { const n = toNumber(v); if (n !== null) found = n; }
   });
   return found;
+}
+
+// Fuel code: match the first 3 letters of the `combustivel` text (accent-
+// insensitive) to a numeric code for programmatic use. No match → null.
+const FUEL_CODE: Record<string, number> = { gas: 1, alc: 2, die: 3, fle: 4, hib: 5, ele: 6, gnv: 7 };
+function fuelCode(combustivel: string | null): number | null {
+  if (!combustivel) return null;
+  // NFD + strip non-letters also removes accents (combining marks). e.g.
+  // "Híbrido" → "hibrido" → "hib"; "GAS/AL/ELE" → "gasalele" → "gas".
+  const p3 = combustivel.normalize("NFD").toLowerCase().replace(/[^a-z]/g, "").slice(0, 3);
+  return FUEL_CODE[p3] ?? null;
 }
 
 /** Standard Brazilian FIPE code format: 7 digits, dash before the last digit,
