@@ -42,6 +42,43 @@ export async function countUsers(): Promise<number> {
   return Number(r.recordset[0].n) || 0;
 }
 
+// ── Programmatic API keys (migration 0016) ───────────────────────────────────
+export type ApiUserContext = { id: string; email: string; subscriptionId: string | null };
+
+/** Resolve an active user (+ its subscription) by the SHA-256 hash of its API
+ *  key. Returns null if no active user holds that key. */
+export async function findByApiKeyHash(hash: string): Promise<ApiUserContext | null> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("h", sql.NVarChar(64), hash)
+    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, email, CAST(subscription_id AS NVARCHAR(40)) AS subscription_id
+            FROM users WHERE api_key_hash = @h AND status = 'active'`);
+  const row = r.recordset[0];
+  return row ? { id: row.id, email: row.email, subscriptionId: row.subscription_id ?? null } : null;
+}
+
+/** The user (+ subscription) for an e-mail — used when issuing a key. */
+export async function getApiContextByEmail(email: string): Promise<ApiUserContext | null> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("email", sql.NVarChar(254), norm(email))
+    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, email, CAST(subscription_id AS NVARCHAR(40)) AS subscription_id
+            FROM users WHERE email = @email`);
+  const row = r.recordset[0];
+  return row ? { id: row.id, email: row.email, subscriptionId: row.subscription_id ?? null } : null;
+}
+
+/** Store the hash + display prefix of a newly issued key on the user (replaces
+ *  any previous key — issuing rotates). */
+export async function setApiKey(userId: string, hash: string, prefix: string): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("id", sql.UniqueIdentifier, userId)
+    .input("h", sql.NVarChar(64), hash)
+    .input("pfx", sql.NVarChar(16), prefix)
+    .query(`UPDATE users SET api_key_hash = @h, api_key_prefix = @pfx, api_key_created_at = SYSUTCDATETIME() WHERE id = @id`);
+}
+
 export async function createUser(input: {
   email: string;
   name: string | null;

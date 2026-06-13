@@ -83,6 +83,23 @@ export async function getSubPlan(userId: string): Promise<SubPlan | null> {
   };
 }
 
+/** Ensure a product exists in the metering catalog (insert if missing; update
+ *  the price/name if a price is given). Used when issuing API access. */
+export async function ensureApiProduct(api: string, code: number, name: string, priceBrl?: number | null): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("a", sql.NVarChar(40), api)
+    .input("c", sql.SmallInt, code)
+    .input("n", sql.NVarChar(120), name)
+    .input("price", sql.Decimal(12, 2), priceBrl ?? null)
+    .query(`
+      MERGE api_products AS t
+      USING (SELECT @a AS api, @c AS code) AS s ON (t.api = s.api AND t.code = s.code)
+      WHEN NOT MATCHED THEN INSERT (api, code, name, unit_price_brl) VALUES (@a, @c, @n, COALESCE(@price, 0))
+      WHEN MATCHED AND @price IS NOT NULL THEN UPDATE SET unit_price_brl = @price;
+    `);
+}
+
 export async function getProductPrice(api: string, code: number): Promise<number | null> {
   const p = await getPool();
   const r = await p.request().input("a", sql.NVarChar(40), api).input("c", sql.SmallInt, code)
