@@ -148,7 +148,7 @@ function extractFipe(data: unknown): FipeData {
     caixaCambio: firstString(data, ["caixaCambio"]),
     numCarroceria: firstString(data, ["numCarroceria"]),
     // FIPE
-    codigoFipe: firstFipeCode(data),
+    codigoFipe: formatFipeCode(firstFipeCode(data)),
     fipeId: itemStr(fipe, "fipeId") ?? firstFipeCode(data),
     versaoFipe: itemStr(fipe, "versao"),
     valorAtual: firstNumber(data, ["valorAtual", "valorfipe", "valorFipe", "valor"]),
@@ -196,6 +196,16 @@ function firstNumber(data: unknown, keys: string[]): number | null {
     if (want.includes(k.toLowerCase())) { const n = toNumber(v); if (n !== null) found = n; }
   });
   return found;
+}
+
+/** Standard Brazilian FIPE code format: 7 digits, dash before the last digit,
+ *  left-padded with zeros. e.g. 22004 → "002200-4". */
+function formatFipeCode(raw: string | null): string | null {
+  if (raw == null) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (!digits) return null;
+  const p = digits.padStart(7, "0");
+  return `${p.slice(0, -1)}-${p.slice(-1)}`;
 }
 
 /** codigoFipe may be a string, or an array of objects each carrying a code. */
