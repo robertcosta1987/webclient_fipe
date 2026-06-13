@@ -39,6 +39,10 @@ Authorization: Bearer <key>      # or:  x-api-key: <key>
     "marca": "TOYOTA",
     "modelo": "CCROSS XRV HYBRID",
     "anoModelo": "2024",
+    "anoFabricacao": "2023",
+    "chassi": "9BRKYAAG2R0667645",
+    "numMotor": "2V66811",
+    "combustivel": "GAS/AL/ELE",
     "codigoFipe": "22004",
     "valorAtual": 161936,
     "historico": [{ "mes": 6, "ano": 2026, "valor": 161936 }]
@@ -46,7 +50,7 @@ Authorization: Bearer <key>      # or:  x-api-key: <key>
 }
 ```
 
-`valorAtual` is in **reais (integer)**. `source` is `live` (new consult) or `cache` (reused, not charged).
+`valorAtual` is in **reais (integer)**. `source` is `live` (new consult) or `cache` (reused, not charged). Any field may be `null` if the vendor doesn't return it.
 
 ## Errors
 
