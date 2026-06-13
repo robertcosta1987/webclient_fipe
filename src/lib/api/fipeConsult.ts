@@ -16,6 +16,10 @@ export type FipeData = {
   marca: string | null;
   modelo: string | null;
   anoModelo: string | null;
+  anoFabricacao: string | null;
+  chassi: string | null;
+  numMotor: string | null;
+  combustivel: string | null;
   codigoFipe: string | null;
   valorAtual: number | null;
   historico: FipePoint[];
@@ -78,6 +82,10 @@ function extractFipe(data: unknown): FipeData {
     marca: firstString(data, ["marca"]),
     modelo: firstString(data, ["modelo", "versao"]),
     anoModelo: firstString(data, ["anoModelo", "anomodelo"]),
+    anoFabricacao: firstString(data, ["anoFabricacao", "anofabricacao"]),
+    chassi: firstString(data, ["chassi", "chassis", "vin"]),
+    numMotor: firstString(data, ["numMotor", "nummotor", "numeroMotor"]),
+    combustivel: firstString(data, ["combustivel"]),
     codigoFipe: firstFipeCode(data),
     valorAtual: firstNumber(data, ["valorAtual", "valorfipe", "valorFipe", "valor"]),
     historico: extractHistory(data),
