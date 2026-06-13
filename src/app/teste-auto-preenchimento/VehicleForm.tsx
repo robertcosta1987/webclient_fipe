@@ -63,6 +63,7 @@ export function VehicleForm() {
   const [placa, setPlaca] = useState("");
   const [form, setForm] = useState<FormState>(EMPTY);
   const [historico, setHistorico] = useState<Pt[]>([]);
+  const [raw, setRaw] = useState<unknown>(null);
   const [photos, setPhotos] = useState<{ url: string; name: string }[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
@@ -103,6 +104,7 @@ export function VehicleForm() {
         valorAtual: d.valorAtual != null ? String(d.valorAtual) : "",
       });
       setHistorico(Array.isArray(d.historico) ? d.historico : []);
+      setRaw(r.raw ?? null);
       setMsg({ ok: true, text: `Preenchido pela placa ${r.placa} (${r.source === "cache" ? "cache" : "consulta nova"}).` });
     });
   }
@@ -147,7 +149,7 @@ export function VehicleForm() {
   }
 
   function resetAll() {
-    setPlaca(""); setForm(EMPTY); setHistorico([]); setPhotos([]); setSavedId(null); setLocked(false);
+    setPlaca(""); setForm(EMPTY); setHistorico([]); setRaw(null); setPhotos([]); setSavedId(null); setLocked(false);
     lastFetched.current = "";
   }
 
@@ -278,6 +280,24 @@ export function VehicleForm() {
 
         {savedId && <span className="text-[12px] text-[var(--fg-faint)]">Salvo · <span className="font-mono">{savedId.slice(0, 8)}</span></span>}
       </div>
+
+      {/* Raw JSON of the consult result (expandable) */}
+      {raw != null && (
+        <details className="surface p-4">
+          <summary className="cursor-pointer text-xs uppercase tracking-[0.18em] text-[var(--fg-muted)] hover:text-[var(--fg)] select-none">
+            Resultado — JSON bruto da consulta
+          </summary>
+          <div className="mt-3 flex justify-end">
+            <button type="button" className="btn-ghost text-[11px]"
+              onClick={() => { navigator.clipboard?.writeText(JSON.stringify(raw, null, 2)).catch(() => {}); }}>
+              Copiar JSON
+            </button>
+          </div>
+          <pre className="mt-2 max-h-[28rem] overflow-auto text-[11px] leading-snug text-[var(--fg)] font-mono whitespace-pre-wrap break-words">
+{JSON.stringify(raw, null, 2)}
+          </pre>
+        </details>
+      )}
     </div>
   );
 }

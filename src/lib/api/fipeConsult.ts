@@ -45,7 +45,7 @@ export type FipeData = {
 };
 
 export type FipeConsultResult =
-  | { ok: true; placa: string; fromCache: boolean; consultaId: string | null; fipe: FipeData }
+  | { ok: true; placa: string; fromCache: boolean; consultaId: string | null; fipe: FipeData; raw: unknown }
   | { ok: false; status: number; error: string };
 
 export async function runFipeConsult(ctx: { userId: string; placa: string }): Promise<FipeConsultResult> {
@@ -59,7 +59,7 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
     const hit = await ct.findFreshByPlaca(placa, code, ctx.userId);
     if (hit) {
       await subs.recordUsage({ api: "checktudo", userId: ctx.userId, productCode: code, consultaId: hit.row.id, placa, source: "cache" }).catch(() => {});
-      return { ok: true, placa, fromCache: true, consultaId: hit.row.id, fipe: await enrichFromCache(placa, extractFipe(hit.data)) };
+      return { ok: true, placa, fromCache: true, consultaId: hit.row.id, fipe: await enrichFromCache(placa, extractFipe(hit.data)), raw: hit.data };
     }
   } catch { /* cache failure must not block the live call */ }
 
@@ -92,7 +92,7 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
   } catch { /* keep the result even if persistence fails */ }
   await subs.recordUsage({ api: "checktudo", userId: ctx.userId, productCode: code, consultaId, placa, source: "live" }).catch(() => {});
 
-  return { ok: true, placa, fromCache: false, consultaId, fipe: await enrichFromCache(placa, extractFipe(result.data)) };
+  return { ok: true, placa, fromCache: false, consultaId, fipe: await enrichFromCache(placa, extractFipe(result.data)), raw: result.raw ?? result.data };
 }
 
 /** Fill any field the 202 result left empty (notably color) from OTHER consults

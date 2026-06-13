@@ -10,7 +10,7 @@ import { runFipeConsult, type FipeData } from "@/lib/api/fipeConsult";
 import * as veh from "@/lib/db/testVehicles";
 
 export type AutoFillResult =
-  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData }
+  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown }
   | { ok: false; error: string };
 
 export async function autoFillPlate(placa: string): Promise<AutoFillResult> {
@@ -20,7 +20,7 @@ export async function autoFillPlate(placa: string): Promise<AutoFillResult> {
 
   const r = await runFipeConsult({ userId, placa });
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", fipe: r.fipe };
+  return { ok: true, placa: r.placa, source: r.fromCache ? "cache" : "live", fipe: r.fipe, raw: r.raw };
 }
 
 export type SaveResult = { ok: true; id: string } | { ok: false; error: string };
