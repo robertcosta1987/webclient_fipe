@@ -16,6 +16,7 @@ export type FipeData = {
   // Identificação
   marca: string | null;
   modelo: string | null;
+  modeloFipe: string | null;      // nome de modelo limpo da FIPE (ex.: "COROLLA")
   versao: string | null;          // versão completa (trim)
   anoModelo: string | null;
   anoFabricacao: string | null;
@@ -126,6 +127,7 @@ function extractFipe(data: unknown): FipeData {
     // Identificação
     marca: firstString(data, ["marca"]),
     modelo: firstString(data, ["modelo"]),
+    modeloFipe: itemStr(fipe, "modelo"),
     versao: itemStr(geral, "versao") ?? itemStr(fipe, "versao") ?? firstString(data, ["versao"]),
     anoModelo: firstString(data, ["anoModelo", "anomodelo"]),
     anoFabricacao: firstString(data, ["anoFabricacao", "anofabricacao"]),

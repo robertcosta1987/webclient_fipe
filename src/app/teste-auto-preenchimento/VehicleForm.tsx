@@ -88,7 +88,8 @@ export function VehicleForm() {
       const U = (v: string | null | undefined) => (v ?? "").toUpperCase(); // ALL fields in CAPITAL
       setForm({
         marca: U(d.marca),
-        modelo: U([d.modelo, d.versao].filter(Boolean).join(" ")), // Modelo = Modelo + Versão
+        // Modelo = nome do modelo (FIPE, ex.: "COROLLA") + Versão
+        modelo: U([d.modeloFipe || d.modelo, d.versao].filter(Boolean).join(" ")),
         versao: U(d.versao),
         anoFabricacao: U(d.anoFabricacao), anoModelo: U(d.anoModelo),
         chassi: U(d.chassi),
