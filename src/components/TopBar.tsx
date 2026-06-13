@@ -8,6 +8,7 @@ const nav = [
   { href: "/infocar", label: "Infocar" },
   { href: "/precos", label: "Tabela KBB" },
   { href: "/checktudo", label: "CheckTudo" },
+  { href: "/teste-auto-preenchimento", label: "Teste Auto Preenchimento" },
 ];
 
 export function TopBar({ user }: { user?: { email: string; role: string } | null }) {
