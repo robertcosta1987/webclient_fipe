@@ -30,6 +30,7 @@ export type FipeData = {
   potencia: string | null;
   cilindradas: string | null;
   eixos: string | null;
+  pbt: string | null;
   capMaxTracao: string | null;
   capacidadePassageiro: string | null;
   caixaCambio: string | null;
@@ -139,6 +140,7 @@ function extractFipe(data: unknown): FipeData {
     potencia: firstString(data, ["potencia", "potenciaMotor"]),
     cilindradas: firstString(data, ["cilindradas"]),
     eixos: firstString(data, ["eixos"]),
+    pbt: firstString(data, ["pbt", "pesoBrutoTotal"]),
     capMaxTracao: firstString(data, ["capMaxTracao"]),
     capacidadePassageiro: firstString(data, ["capacidadePassageiro", "quantidadePassageiro"]),
     caixaCambio: firstString(data, ["caixaCambio"]),
