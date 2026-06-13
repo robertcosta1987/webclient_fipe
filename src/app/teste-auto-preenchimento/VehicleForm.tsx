@@ -4,7 +4,13 @@ import { useRef, useState, useTransition } from "react";
 import { normalizePlaca, isValidPlaca } from "@/lib/placa/normalize";
 import { Plate } from "@/components/Plate";
 import { autoFillPlate, saveVehicle, removeVehicle } from "./actions";
+import { gerarAnuncio } from "./anuncio";
+import type { Anuncio } from "@/lib/anuncio/types";
 import type { VehicleInput } from "@/lib/db/testVehicles";
+
+// Telefone de contato no anúncio — placeholder até vir do cliente.
+const CONTACT_PHONE = "5511900000000";
+const CONTACT_PHONE_LABEL = "+55 (11) 90000-0000";
 
 type Pt = { mes: number; ano: number; valor: number };
 
@@ -66,12 +72,15 @@ export function VehicleForm() {
   const [historico, setHistorico] = useState<Pt[]>([]);
   const [processed, setProcessed] = useState<unknown>(null);
   const [raw, setRaw] = useState<unknown>(null);
-  const [photos, setPhotos] = useState<{ url: string; name: string }[]>([]);
+  const [photos, setPhotos] = useState<{ dataUrl: string; name: string }[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [filling, startFill] = useTransition();
   const [saving, startSave] = useTransition();
+  const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
+  const [adErr, setAdErr] = useState<string | null>(null);
+  const [genAd, startAd] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
   const lastFetched = useRef<string>("");
 
@@ -154,15 +163,46 @@ export function VehicleForm() {
   }
 
   function resetAll() {
-    setPlaca(""); setForm(EMPTY); setHistorico([]); setProcessed(null); setRaw(null); setPhotos([]); setSavedId(null); setLocked(false);
+    setPlaca(""); setForm(EMPTY); setHistorico([]); setProcessed(null); setRaw(null); setPhotos([]); setAnuncio(null); setAdErr(null); setSavedId(null); setLocked(false);
     lastFetched.current = "";
   }
 
   function addPhotos(files: FileList | null) {
     if (!files) return;
-    const next = Array.from(files).filter((f) => f.type.startsWith("image/")).map((f) => ({ url: URL.createObjectURL(f), name: f.name }));
-    setPhotos((p) => [...p, ...next]);
+    // Read as data URLs so they embed in the offer/PDF (no blob: cross-window issues).
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith("image/")) continue;
+      const reader = new FileReader();
+      reader.onload = () => setPhotos((p) => [...p, { dataUrl: String(reader.result), name: f.name }]);
+      reader.readAsDataURL(f);
+    }
   }
+
+  function onGerarAnuncio() {
+    if (photos.length === 0) { setAdErr("Adicione ao menos 1 foto do veículo para gerar o anúncio."); return; }
+    setAdErr(null); setAnuncio(null);
+    startAd(async () => {
+      const r = await gerarAnuncio({
+        placa: placaNorm || null, marca: form.marca || null, modelo: form.modelo || null, versao: form.versao || null,
+        anoFabricacao: form.anoFabricacao || null, anoModelo: form.anoModelo || null, corVeiculo: form.corVeiculo || null,
+        combustivel: form.combustivel || null, potencia: form.potencia || null, cilindradas: form.cilindradas || null,
+        caixaCambio: form.caixaCambio || null, municipio: form.municipio || null,
+        valorFipe: form.valorAtual && Number.isFinite(Number(form.valorAtual)) ? Number(form.valorAtual) : null,
+      });
+      if (!r.ok) { setAdErr(r.error); return; }
+      setAnuncio(r.anuncio);
+    });
+  }
+
+  function downloadAnuncioPdf() {
+    if (!anuncio) return;
+    const url = URL.createObjectURL(new Blob([buildAnuncioHtml(form, anuncio, photos, placaNorm)], { type: "text/html" }));
+    const w = window.open(url, "_blank", "width=900,height=1000");
+    if (!w) { URL.revokeObjectURL(url); window.alert("Permita pop-ups para baixar o PDF e tente novamente."); return; }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  const copy = (t: string) => { navigator.clipboard?.writeText(t).catch(() => {}); };
 
   const disabled = locked || saving;
 
@@ -258,7 +298,7 @@ export function VehicleForm() {
             {photos.map((ph, i) => (
               <div key={i} className="relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ph.url} alt={ph.name} className="w-full h-24 object-cover rounded-md border" style={{ borderColor: "var(--hairline)" }} />
+                <img src={ph.dataUrl} alt={ph.name} className="w-full h-24 object-cover rounded-md border" style={{ borderColor: "var(--hairline)" }} />
                 {!locked && (
                   <button type="button" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full text-[12px] leading-none"
@@ -283,15 +323,14 @@ export function VehicleForm() {
         )}
         <button type="button" onClick={onDelete} disabled={saving} className="btn-ghost" style={{ borderColor: "rgba(248,113,113,0.5)", color: "#f87171" }}>APAGAR</button>
 
-        {/* Gerar Anúncio — em breve */}
-        <div className="relative inline-block">
-          <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-            style={{ background: "var(--accent)", color: "#06070d" }}>Em breve</span>
-          <button type="button" disabled aria-disabled className="btn-ghost opacity-60 cursor-not-allowed">Gerar Anúncio</button>
-        </div>
+        <button type="button" onClick={onGerarAnuncio} disabled={genAd || photos.length === 0}
+          title={photos.length === 0 ? "Adicione ao menos 1 foto" : undefined} className="btn-primary">
+          {genAd ? "Gerando anúncio…" : "Gerar Anúncio"}
+        </button>
 
         {savedId && <span className="text-[12px] text-[var(--fg-faint)]">Salvo · <span className="font-mono">{savedId.slice(0, 8)}</span></span>}
       </div>
+      {adErr && <p className="text-[13px]" style={{ color: "var(--danger)" }}>{adErr}</p>}
 
       {/* Result JSON — processed (what the customer gets) + raw vendor payload */}
       {processed != null && (
@@ -328,11 +367,101 @@ export function VehicleForm() {
           </pre>
         </details>
       )}
+
+      {/* Anúncio gerado (modal) */}
+      {anuncio && (
+        <div className="fixed inset-0 z-50 overflow-y-auto p-4" style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setAnuncio(null)} role="dialog" aria-modal="true">
+          <div className="glass mx-auto my-4 max-w-3xl p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="chip">Anúncio gerado por IA</span>
+                <h2 className="font-display text-xl text-[var(--fg-strong)] mt-2">{anuncio.titulo}</h2>
+                <p className="text-[13px] text-[var(--fg-muted)]">{anuncio.subtitulo}</p>
+              </div>
+              <button type="button" onClick={() => setAnuncio(null)} className="btn-ghost text-sm">Fechar</button>
+            </div>
+
+            {photos.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {photos.map((ph, i) => <img key={i} src={ph.dataUrl} alt={ph.name} className="w-full h-20 object-cover rounded-md" />)}
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-[11px] uppercase tracking-[0.14em] text-[var(--fg-muted)] mb-1">Destaques</h3>
+              <ul className="list-disc pl-5 text-[13.5px] text-[var(--fg)] space-y-0.5">
+                {anuncio.destaques.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] uppercase tracking-[0.14em] text-[var(--fg-muted)] mb-1">Descrição</h3>
+              <p className="text-[13.5px] text-[var(--fg)] whitespace-pre-wrap">{anuncio.descricao}</p>
+              <p className="text-[12.5px] text-[var(--fg-muted)] mt-2">{anuncio.precoTexto}</p>
+              {anuncio.hashtags.length > 0 && <p className="text-[12px] text-[var(--accent)] mt-2">{anuncio.hashtags.join(" ")}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-[11px] uppercase tracking-[0.14em] text-[var(--fg-muted)]">Copiar para portais</h3>
+              {([["Webmotors", anuncio.portais.webmotors], ["OLX", anuncio.portais.olx], ["Redes sociais", anuncio.portais.social], ["WhatsApp", anuncio.portais.whatsapp]] as const).map(([label, txt]) => (
+                <div key={label} className="surface p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[12px] font-semibold text-[var(--fg-strong)]">{label}</span>
+                    <button type="button" onClick={() => copy(txt)} className="btn-ghost text-[11px]">Copiar</button>
+                  </div>
+                  <p className="text-[12.5px] text-[var(--fg)] whitespace-pre-wrap">{txt}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button type="button" onClick={downloadAnuncioPdf} className="btn-primary">⬇ Baixar PDF</button>
+              <a href={`https://wa.me/${CONTACT_PHONE}`} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm inline-flex items-center gap-1.5" style={{ borderColor: "rgba(37,211,102,0.55)" }}>
+                Fale Conosco · {CONTACT_PHONE_LABEL}
+              </a>
+              <span className="text-[11px] text-[var(--fg-faint)]">Telefone é um placeholder.</span>
+            </div>
+            <p className="text-[11px] text-[var(--fg-faint)]">Em breve: remoção de fundo das fotos, mockups e link compartilhável (Azure).</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 const BRL0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+/** Self-contained printable HTML for the generated ad (auto-opens print). */
+function buildAnuncioHtml(form: FormState, a: Anuncio, photos: { dataUrl: string; name: string }[], placa: string): string {
+  const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+  const imgs = photos.map((p) => `<img src="${p.dataUrl}" alt="">`).join("");
+  const bullets = a.destaques.map((d) => `<li>${esc(d)}</li>`).join("");
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(a.titulo)}</title>
+<style>
+  @page{size:A4;margin:14mm}*{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2233;font-size:12px;line-height:1.5;margin:0}
+  .bar{border-bottom:3px solid #1f6feb;padding-bottom:8px;margin-bottom:12px}
+  .brand{font-weight:800;color:#1f6feb;font-size:16px}
+  h1{font-size:20px;color:#0b2a4a;margin:6px 0 2px}.sub{color:#5a6b80}
+  .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.grid img{width:32%;height:120px;object-fit:cover;border-radius:6px}
+  h2{font-size:13px;color:#0b2a4a;border-bottom:1px solid #e4ebf3;padding-bottom:3px;margin:14px 0 6px}
+  ul{margin:6px 0 6px 18px}.price{color:#0b2a4a;font-weight:600}.tags{color:#1f6feb;font-size:11px;margin-top:6px}
+  .contact{margin-top:14px;padding:10px 12px;background:#eef6ff;border-left:4px solid #1f6feb;border-radius:0 6px 6px 0}
+  footer{margin-top:16px;border-top:1px solid #e4ebf3;padding-top:8px;color:#8a97a8;font-size:10px}
+</style></head><body onload="window.print()">
+  <div class="bar"><span class="brand">Placas360</span></div>
+  <h1>${esc(a.titulo)}</h1><div class="sub">${esc(a.subtitulo)}${placa ? ` · Placa ${esc(placa)}` : ""}</div>
+  ${imgs ? `<div class="grid">${imgs}</div>` : ""}
+  <h2>Destaques</h2><ul>${bullets}</ul>
+  <h2>Descrição</h2><p>${esc(a.descricao).replace(/\n/g, "<br>")}</p>
+  <p class="price">${esc(a.precoTexto)}</p>
+  <p class="tags">${esc(a.hashtags.join(" "))}</p>
+  <div class="contact"><strong>Fale Conosco:</strong> ${CONTACT_PHONE_LABEL} (placeholder)</div>
+  <footer>Placas360 · Anúncio gerado automaticamente a partir dos dados do veículo${form.marca ? ` (${esc(form.marca)})` : ""}.</footer>
+</body></html>`;
+}
 const ml = (p: Pt) => `${String(p.mes).padStart(2, "0")}/${String(p.ano).slice(2)}`;
 
 /** Compact FIPE price line chart (last 12 months). */
