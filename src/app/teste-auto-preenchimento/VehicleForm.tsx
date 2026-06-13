@@ -10,7 +10,7 @@ type Pt = { mes: number; ano: number; valor: number };
 
 type Field = keyof FormState;
 type FormState = {
-  marca: string; modelo: string; versao: string; anoFabricacao: string; anoModelo: string;
+  marca: string; modelo: string; versao: string; anoFabModelo: string;
   chassi: string; numMotor: string; combustivel: string; corVeiculo: string; tipoVeiculo: string;
   especieVeiculo: string; nacional: string; potencia: string; cilindradas: string; eixos: string;
   capMaxTracao: string; capacidadePassageiro: string; caixaCambio: string; numCarroceria: string;
@@ -18,7 +18,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
-  marca: "", modelo: "", versao: "", anoFabricacao: "", anoModelo: "", chassi: "", numMotor: "",
+  marca: "", modelo: "", versao: "", anoFabModelo: "", chassi: "", numMotor: "",
   combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", nacional: "", potencia: "",
   cilindradas: "", eixos: "", capMaxTracao: "", capacidadePassageiro: "", caixaCambio: "",
   numCarroceria: "", codigoFipe: "", fipeId: "", valorAtual: "",
@@ -26,9 +26,10 @@ const EMPTY: FormState = {
 
 const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boolean }[] }[] = [
   { title: "Identificação", fields: [
-    { key: "marca", label: "Marca" }, { key: "modelo", label: "Modelo" },
+    { key: "marca", label: "Marca" },
+    { key: "modelo", label: "Modelo (Marca + Versão)", wide: true },
     { key: "versao", label: "Versão", wide: true },
-    { key: "anoFabricacao", label: "Ano fabricação" }, { key: "anoModelo", label: "Ano modelo" },
+    { key: "anoFabModelo", label: "Ano Fab/Modelo" },
     { key: "chassi", label: "Chassi" }, { key: "numMotor", label: "Nº do motor" },
     { key: "combustivel", label: "Combustível" }, { key: "corVeiculo", label: "Cor" },
     { key: "tipoVeiculo", label: "Tipo" }, { key: "especieVeiculo", label: "Espécie" },
@@ -75,9 +76,13 @@ export function VehicleForm() {
       if (!r.ok) { setMsg({ ok: false, text: r.error }); return; }
       const d = r.fipe;
       const U = (v: string | null | undefined) => (v ?? "").toUpperCase(); // ALL fields in CAPITAL
+      const anos = [d.anoFabricacao, d.anoModelo].filter(Boolean).join("/"); // "2023/2024"
       setForm({
-        marca: U(d.marca), modelo: U(d.modelo), versao: U(d.versao),
-        anoFabricacao: U(d.anoFabricacao), anoModelo: U(d.anoModelo), chassi: U(d.chassi),
+        marca: U(d.marca),
+        modelo: U([d.marca, d.versao].filter(Boolean).join(" ")), // Modelo = Marca + Versão
+        versao: U(d.versao),
+        anoFabModelo: anos,
+        chassi: U(d.chassi),
         numMotor: U(d.numMotor), combustivel: U(d.combustivel), corVeiculo: U(d.corVeiculo),
         tipoVeiculo: U(d.tipoVeiculo), especieVeiculo: U(d.especieVeiculo), nacional: U(d.nacional),
         potencia: U(d.potencia), cilindradas: U(d.cilindradas), eixos: U(d.eixos),
@@ -94,9 +99,10 @@ export function VehicleForm() {
   function toInput(): VehicleInput {
     const s = (v: string) => { const t = v.trim(); return t === "" ? null : t; };
     const valor = form.valorAtual.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+    const [anoFab, anoMod] = form.anoFabModelo.split("/").map((x) => x.trim());
     return {
       placa: placaNorm || null, marca: s(form.marca), modelo: s(form.modelo), versao: s(form.versao),
-      anoModelo: s(form.anoModelo), anoFabricacao: s(form.anoFabricacao), chassi: s(form.chassi),
+      anoFabricacao: s(anoFab ?? ""), anoModelo: s(anoMod ?? anoFab ?? ""), chassi: s(form.chassi),
       numMotor: s(form.numMotor), combustivel: s(form.combustivel), corVeiculo: s(form.corVeiculo),
       tipoVeiculo: s(form.tipoVeiculo), especieVeiculo: s(form.especieVeiculo), nacional: s(form.nacional),
       potencia: s(form.potencia), cilindradas: s(form.cilindradas), eixos: s(form.eixos),
