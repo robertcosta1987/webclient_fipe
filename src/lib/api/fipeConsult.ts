@@ -31,6 +31,7 @@ export type FipeData = {
   especieVeiculo: string | null;
   nacional: string | null;
   codigoProcedencia: number | null; // 74 = NACIONAL, 76 = IMPORTADO (derivado de `nacional`)
+  municipio: string | null;         // do consult cadastral (65/66) em cache, quando disponível
   // Ficha técnica
   potencia: string | null;
   cilindradas: string | null;
@@ -145,6 +146,7 @@ function extractFipe(data: unknown): FipeData {
     especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
     nacional: firstString(data, ["nacional", "nacionalidade"]),
     codigoProcedencia: isImported(firstString(data, ["nacional", "nacionalidade"])) ? 76 : 74,
+    municipio: firstString(data, ["municipio"]),
     // Ficha técnica
     potencia: firstString(data, ["potencia", "potenciaMotor"]),
     cilindradas: firstString(data, ["cilindradas"]),

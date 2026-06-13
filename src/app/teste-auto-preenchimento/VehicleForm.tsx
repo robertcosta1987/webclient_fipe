@@ -12,14 +12,14 @@ type Field = keyof FormState;
 type FormState = {
   marca: string; modelo: string; versao: string; anoFabricacao: string; anoModelo: string;
   chassi: string; numMotor: string; combustivel: string; corVeiculo: string; tipoVeiculo: string;
-  especieVeiculo: string; procedencia: string; potencia: string; cilindradas: string; eixos: string;
+  especieVeiculo: string; procedencia: string; municipio: string; potencia: string; cilindradas: string; eixos: string;
   pbtKg: string; capMaxTracao: string; capacidadePassageiro: string; caixaCambio: string; numCarroceria: string;
   codigoFipe: string; fipeId: string; valorAtual: string;
 };
 
 const EMPTY: FormState = {
   marca: "", modelo: "", versao: "", anoFabricacao: "", anoModelo: "", chassi: "", numMotor: "",
-  combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", procedencia: "", potencia: "",
+  combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", procedencia: "", municipio: "", potencia: "",
   cilindradas: "", eixos: "", pbtKg: "", capMaxTracao: "", capacidadePassageiro: "", caixaCambio: "",
   numCarroceria: "", codigoFipe: "", fipeId: "", valorAtual: "",
 };
@@ -34,6 +34,7 @@ const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boo
     { key: "combustivel", label: "Combustível" }, { key: "corVeiculo", label: "Cor" },
     { key: "tipoVeiculo", label: "Tipo" }, { key: "especieVeiculo", label: "Espécie" },
     { key: "procedencia", label: "Procedência", select: ["NACIONAL", "IMPORTADO"] },
+    { key: "municipio", label: "Tarjeta do Município", wide: true },
   ] },
   { title: "Ficha técnica", fields: [
     { key: "potencia", label: "Potência (cv)" }, { key: "cilindradas", label: "Cilindradas (cc)" },
@@ -98,6 +99,7 @@ export function VehicleForm() {
         numMotor: U(d.numMotor), combustivel: U(d.combustivel), corVeiculo: U(d.corVeiculo),
         tipoVeiculo: U(d.tipoVeiculo), especieVeiculo: U(d.especieVeiculo),
         procedencia: (!d.nacional || !d.nacional.trim() || /import/i.test(d.nacional)) ? "IMPORTADO" : "NACIONAL",
+        municipio: U(d.municipio),
         potencia: U(d.potencia), cilindradas: U(d.cilindradas), eixos: U(d.eixos),
         pbtKg: pbtToKg(d.pbt),
         capMaxTracao: U(d.capMaxTracao), capacidadePassageiro: U(d.capacidadePassageiro),
