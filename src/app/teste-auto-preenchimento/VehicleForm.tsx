@@ -302,8 +302,9 @@ export function VehicleForm() {
                     />
                   </div>
                 ) : f.textarea ? (
+                  // Campo livre do vendedor: sempre editável (não bloqueia com o cadastro).
                   <textarea
-                    id={`tap-${f.key}`} value={form[f.key]} disabled={disabled} rows={3}
+                    id={`tap-${f.key}`} value={form[f.key]} disabled={saving} rows={3}
                     onChange={(e) => set(f.key, e.target.value)}
                     placeholder="Ex.: Blindado, teto solar, bancos em couro, único dono, revisões em concessionária…"
                     className="input resize-y" style={{ minHeight: "4.5rem" }}
