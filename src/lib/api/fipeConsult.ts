@@ -13,14 +13,31 @@ export const FIPE_PRODUCT_CODE = 202;
 
 export type FipePoint = { mes: number; ano: number; valor: number };
 export type FipeData = {
+  // Identificação
   marca: string | null;
   modelo: string | null;
+  versao: string | null;          // versão completa (trim)
   anoModelo: string | null;
   anoFabricacao: string | null;
   chassi: string | null;
   numMotor: string | null;
   combustivel: string | null;
+  corVeiculo: string | null;
+  tipoVeiculo: string | null;
+  especieVeiculo: string | null;
+  nacional: string | null;
+  // Ficha técnica
+  potencia: string | null;
+  cilindradas: string | null;
+  eixos: string | null;
+  capMaxTracao: string | null;
+  capacidadePassageiro: string | null;
+  caixaCambio: string | null;
+  numCarroceria: string | null;
+  // FIPE
   codigoFipe: string | null;
+  fipeId: string | null;
+  versaoFipe: string | null;      // versão conforme a FIPE
   valorAtual: number | null;
   historico: FipePoint[];
 };
@@ -78,15 +95,36 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
 
 // ── FIPE field extraction (tolerant of the nested 202 payload) ───────────────
 function extractFipe(data: unknown): FipeData {
+  const fipe = firstArrayItem(data, "informacoesFipe");   // { fipeId, versao, valorAtual, … }
+  const geral = firstArrayItem(data, "informacoesGerais"); // { versao, modelo, marca, … }
+  const itemStr = (o: Record<string, unknown> | null, k: string): string | null =>
+    o && o[k] != null && String(o[k]).trim() !== "" ? String(o[k]).trim() : null;
   return {
+    // Identificação
     marca: firstString(data, ["marca"]),
-    modelo: firstString(data, ["modelo", "versao"]),
+    modelo: firstString(data, ["modelo"]),
+    versao: itemStr(geral, "versao") ?? itemStr(fipe, "versao") ?? firstString(data, ["versao"]),
     anoModelo: firstString(data, ["anoModelo", "anomodelo"]),
     anoFabricacao: firstString(data, ["anoFabricacao", "anofabricacao"]),
     chassi: firstString(data, ["chassi", "chassis", "vin"]),
     numMotor: firstString(data, ["numMotor", "nummotor", "numeroMotor"]),
     combustivel: firstString(data, ["combustivel"]),
+    corVeiculo: firstString(data, ["corVeiculo", "cor"]),
+    tipoVeiculo: firstString(data, ["tipoVeiculo"]),
+    especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
+    nacional: firstString(data, ["nacional", "nacionalidade"]),
+    // Ficha técnica
+    potencia: firstString(data, ["potencia", "potenciaMotor"]),
+    cilindradas: firstString(data, ["cilindradas"]),
+    eixos: firstString(data, ["eixos"]),
+    capMaxTracao: firstString(data, ["capMaxTracao"]),
+    capacidadePassageiro: firstString(data, ["capacidadePassageiro", "quantidadePassageiro"]),
+    caixaCambio: firstString(data, ["caixaCambio"]),
+    numCarroceria: firstString(data, ["numCarroceria"]),
+    // FIPE
     codigoFipe: firstFipeCode(data),
+    fipeId: itemStr(fipe, "fipeId") ?? firstFipeCode(data),
+    versaoFipe: itemStr(fipe, "versao"),
     valorAtual: firstNumber(data, ["valorAtual", "valorfipe", "valorFipe", "valor"]),
     historico: extractHistory(data),
   };
@@ -99,6 +137,19 @@ function walk(node: unknown, visit: (key: string, value: unknown) => void, depth
     visit(k, v);
     if (v && typeof v === "object") walk(v, visit, depth + 1);
   }
+}
+
+/** First object element of the first array found under `arrayKey` (anywhere). */
+function firstArrayItem(data: unknown, arrayKey: string): Record<string, unknown> | null {
+  const want = arrayKey.toLowerCase();
+  let found: Record<string, unknown> | null = null;
+  walk(data, (k, v) => {
+    if (found) return;
+    if (k.toLowerCase() === want && Array.isArray(v) && v.length && v[0] && typeof v[0] === "object") {
+      found = v[0] as Record<string, unknown>;
+    }
+  });
+  return found;
 }
 
 function firstString(data: unknown, keys: string[]): string | null {
