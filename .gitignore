@@ -45,3 +45,7 @@ yarn-error.log*
 next-env.d.ts
 .creds
 scripts/*.local.json
+
+# Customer API deliverables — contain a live API key, never commit
+docs/Placas360-API-FIPE*.html
+docs/Placas360-API-FIPE*.pdf
