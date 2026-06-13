@@ -57,7 +57,7 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
     const hit = await ct.findFreshByPlaca(placa, code, ctx.userId);
     if (hit) {
       await subs.recordUsage({ api: "checktudo", userId: ctx.userId, productCode: code, consultaId: hit.row.id, placa, source: "cache" }).catch(() => {});
-      return { ok: true, placa, fromCache: true, consultaId: hit.row.id, fipe: extractFipe(hit.data) };
+      return { ok: true, placa, fromCache: true, consultaId: hit.row.id, fipe: await enrichFromCache(placa, extractFipe(hit.data)) };
     }
   } catch { /* cache failure must not block the live call */ }
 
@@ -90,7 +90,29 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
   } catch { /* keep the result even if persistence fails */ }
   await subs.recordUsage({ api: "checktudo", userId: ctx.userId, productCode: code, consultaId, placa, source: "live" }).catch(() => {});
 
-  return { ok: true, placa, fromCache: false, consultaId, fipe: extractFipe(result.data) };
+  return { ok: true, placa, fromCache: false, consultaId, fipe: await enrichFromCache(placa, extractFipe(result.data)) };
+}
+
+/** Fill any field the 202 result left empty (notably color) from OTHER consults
+ *  already cached for this plate (any product, cross-tenant). Cache-only — no
+ *  vendor call, no charge. */
+async function enrichFromCache(placa: string, fipe: FipeData): Promise<FipeData> {
+  const keys = (Object.keys(fipe) as (keyof FipeData)[]).filter((k) => k !== "historico");
+  const missing = keys.filter((k) => fipe[k] == null || fipe[k] === "");
+  const needHistory = fipe.historico.length === 0;
+  if (missing.length === 0 && !needHistory) return fipe;
+  let payloads: unknown[] = [];
+  try { payloads = await ct.allByPlaca(placa); } catch { return fipe; }
+  for (const data of payloads) {
+    if (missing.length === 0 && fipe.historico.length > 0) break;
+    const extra = extractFipe(data);
+    for (const k of [...missing]) {
+      const v = extra[k];
+      if (v != null && v !== "") { (fipe[k] as string | number | null) = v as string | number | null; missing.splice(missing.indexOf(k), 1); }
+    }
+    if (fipe.historico.length === 0 && extra.historico.length > 0) fipe.historico = extra.historico;
+  }
+  return fipe;
 }
 
 // ── FIPE field extraction (tolerant of the nested 202 payload) ───────────────
@@ -109,7 +131,7 @@ function extractFipe(data: unknown): FipeData {
     chassi: firstString(data, ["chassi", "chassis", "vin"]),
     numMotor: firstString(data, ["numMotor", "nummotor", "numeroMotor"]),
     combustivel: firstString(data, ["combustivel"]),
-    corVeiculo: firstString(data, ["corVeiculo", "cor"]),
+    corVeiculo: firstString(data, ["corVeiculo", "cor", "corPredominante", "corPrincipal", "corDoVeiculo"]),
     tipoVeiculo: firstString(data, ["tipoVeiculo"]),
     especieVeiculo: firstString(data, ["especieVeiculo", "especie"]),
     nacional: firstString(data, ["nacional", "nacionalidade"]),

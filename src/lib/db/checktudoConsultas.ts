@@ -69,6 +69,18 @@ export async function findFreshByPlaca(placa: string, productCode: number, owner
   return { row, data: safeParse(row.payload) };
 }
 
+/** All cached payloads for a plate, ANY product, cross-tenant (most recent
+ *  first). Used to enrich a result with fields a given product didn't return
+ *  (e.g. color) from other consults already cached for that plate. */
+export async function allByPlaca(placa: string, limit = 20): Promise<ChecktudoData[]> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("placa", sql.NVarChar(10), placa)
+    .input("lim", sql.Int, limit)
+    .query(`SELECT TOP (@lim) payload FROM checktudo_consultas WHERE placa = @placa ORDER BY consulted_at DESC`);
+  return r.recordset.map((row) => safeParse(row.payload as string));
+}
+
 /** Get one row by id (history detail view) — scoped to the owner. */
 export async function getById(id: string, ownerId: string): Promise<(ChecktudoConsultaRow & { parsed: ChecktudoData }) | null> {
   const p = await getPool();
