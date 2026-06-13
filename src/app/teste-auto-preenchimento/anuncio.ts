@@ -15,6 +15,12 @@ const SYSTEM =
   "Escreva em PT-BR, persuasivo, confiável e honesto. Use SOMENTE os dados fornecidos — " +
   "NUNCA invente quilometragem, número de donos, estado de conservação, itens ou preço de venda. " +
   "Destaque procedência, marca/modelo, ano, motorização e o valor de referência FIPE. " +
+  "Ao citar o valor FIPE, informe SEMPRE o mês/ano de referência (campo fipeReferencia). " +
+  "Sempre que houver opcionais/características informados pelo vendedor (campo opcionais), " +
+  "destaque-os no anúncio. " +
+  "NÃO seja repetitivo: cada informação (sobretudo o valor/FIPE) deve aparecer UMA única vez, " +
+  "no campo mais adequado — não repita o mesmo dado em título, subtítulo, destaques e descrição. " +
+  "Varie o vocabulário entre as seções. " +
   "Responda em JSON estrito, sem markdown.";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -25,12 +31,13 @@ export async function gerarAnuncio(input: AdInput): Promise<AnuncioResult> {
   if (!key) return { ok: false, error: "IA não configurada (ANTHROPIC_API_KEY ausente)." };
 
   const fipeTxt = input.valorFipe != null ? BRL.format(input.valorFipe) : "não consta";
+  const fipeRefTxt = input.fipeReferencia ? `${fipeTxt} (referência FIPE ${input.fipeReferencia})` : fipeTxt;
   const user =
     "Dados do veículo (use só o que está aqui; campos vazios = não consta, não invente):\n" +
-    JSON.stringify({ ...input, valorFipeFormatado: fipeTxt }) +
-    "\n\nGere um anúncio de venda. Responda em JSON com as chaves: " +
-    "titulo (curto e chamativo), subtitulo (1 frase), destaques (3 a 6 bullets curtos), " +
-    "descricao (2 parágrafos persuasivos e honestos), precoTexto (1 frase usando o valor FIPE como referência, SEM inventar preço de venda), " +
+    JSON.stringify({ ...input, valorFipeFormatado: fipeRefTxt }) +
+    "\n\nGere um anúncio de venda. Não repita a mesma informação em várias seções. Responda em JSON com as chaves: " +
+    "titulo (curto e chamativo), subtitulo (1 frase), destaques (3 a 6 bullets curtos, sem repetir o que já está no título; inclua os opcionais informados, se houver), " +
+    "descricao (2 parágrafos persuasivos e honestos), precoTexto (1 frase citando o valor FIPE com o mês/ano de referência como referência de preço, SEM inventar preço de venda), " +
     "hashtags (5 a 8, cada uma começando com #), " +
     "portais (objeto com webmotors, olx, social, whatsapp — cada um um texto pronto para colar naquele canal, no tom adequado).";
 

@@ -21,16 +21,17 @@ type FormState = {
   especieVeiculo: string; procedencia: string; municipio: string; potencia: string; cilindradas: string; eixos: string;
   pbtKg: string; capMaxTracao: string; capacidadePassageiro: string; caixaCambio: string; numCarroceria: string;
   codigoFipe: string; fipeId: string; valorAtual: string;
+  opcionais: string;
 };
 
 const EMPTY: FormState = {
   marca: "", modelo: "", versao: "", anoFabricacao: "", anoModelo: "", chassi: "", numMotor: "",
   combustivel: "", corVeiculo: "", tipoVeiculo: "", especieVeiculo: "", procedencia: "", municipio: "", potencia: "",
   cilindradas: "", eixos: "", pbtKg: "", capMaxTracao: "", capacidadePassageiro: "", caixaCambio: "",
-  numCarroceria: "", codigoFipe: "", fipeId: "", valorAtual: "",
+  numCarroceria: "", codigoFipe: "", fipeId: "", valorAtual: "", opcionais: "",
 };
 
-const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boolean; years?: boolean; select?: string[] }[] }[] = [
+const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boolean; years?: boolean; select?: string[]; textarea?: boolean }[] }[] = [
   { title: "Identificação", fields: [
     { key: "marca", label: "Marca" },
     { key: "modelo", label: "Modelo (Modelo + Versão)", wide: true },
@@ -52,6 +53,9 @@ const SECTIONS: { title: string; fields: { key: Field; label: string; wide?: boo
   { title: "FIPE", fields: [
     { key: "codigoFipe", label: "Código FIPE" }, { key: "fipeId", label: "FIPE ID" },
     { key: "valorAtual", label: "Valor FIPE (R$)" },
+  ] },
+  { title: "Opcionais / Outras características", fields: [
+    { key: "opcionais", label: "Opcionais ou outras características (ex.: Blindado, teto solar, único dono)", wide: true, textarea: true },
   ] },
 ];
 
@@ -118,6 +122,7 @@ export function VehicleForm() {
         caixaCambio: U(d.caixaCambio), numCarroceria: U(d.numCarroceria),
         codigoFipe: U(d.codigoFipe), fipeId: U(d.fipeId),
         valorAtual: d.valorAtual != null ? String(d.valorAtual) : "",
+        opcionais: r.saved?.opcionais ?? "", // texto livre do vendedor (carrega do registro salvo)
       });
       setHistorico(Array.isArray(d.historico) ? d.historico : []);
       setProcessed({ placa: r.placa, source: r.source, fipe: r.fipe }); // saída entregue ao cliente (enriquecida)
@@ -148,6 +153,7 @@ export function VehicleForm() {
       caixaCambio: s(form.caixaCambio), numCarroceria: s(form.numCarroceria), codigoFipe: s(form.codigoFipe),
       fipeId: s(form.fipeId), versaoFipe: null,
       valorAtual: valor && Number.isFinite(Number(valor)) ? Number(valor) : null,
+      opcionais: s(form.opcionais),
       photoCount: photos.length,
       photos: null, // URLs são preenchidas no servidor após o upload
     };
@@ -211,6 +217,9 @@ export function VehicleForm() {
   function onGerarAnuncio() {
     if (photos.length === 0) { setAdErr("Adicione ao menos 1 foto do veículo para gerar o anúncio."); return; }
     setAdErr(null); setAnuncio(null); setShareUrl(null); setShareErr(null); setCopiedLink(false);
+    // Mês/ano de referência da FIPE = ponto mais recente do histórico (ex.: "06/2026").
+    const lastPt = historico[historico.length - 1];
+    const fipeReferencia = lastPt ? `${String(lastPt.mes).padStart(2, "0")}/${lastPt.ano}` : null;
     startAd(async () => {
       const r = await gerarAnuncio({
         placa: placaNorm || null, marca: form.marca || null, modelo: form.modelo || null, versao: form.versao || null,
@@ -218,6 +227,7 @@ export function VehicleForm() {
         combustivel: form.combustivel || null, potencia: form.potencia || null, cilindradas: form.cilindradas || null,
         caixaCambio: form.caixaCambio || null, municipio: form.municipio || null,
         valorFipe: form.valorAtual && Number.isFinite(Number(form.valorAtual)) ? Number(form.valorAtual) : null,
+        fipeReferencia, opcionais: form.opcionais.trim() || null,
       });
       if (!r.ok) { setAdErr(r.error); return; }
       setAnuncio(r.anuncio);
@@ -291,6 +301,13 @@ export function VehicleForm() {
                       style={{ textTransform: "uppercase" }}
                     />
                   </div>
+                ) : f.textarea ? (
+                  <textarea
+                    id={`tap-${f.key}`} value={form[f.key]} disabled={disabled} rows={3}
+                    onChange={(e) => set(f.key, e.target.value)}
+                    placeholder="Ex.: Blindado, teto solar, bancos em couro, único dono, revisões em concessionária…"
+                    className="input resize-y" style={{ minHeight: "4.5rem" }}
+                  />
                 ) : f.select ? (
                   <select
                     id={`tap-${f.key}`} value={form[f.key]} disabled={disabled}

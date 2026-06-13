@@ -11,7 +11,7 @@ import { uploadImageDataUrls } from "@/lib/storage/blob";
 import * as veh from "@/lib/db/testVehicles";
 
 export type AutoFillResult =
-  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown; saved: { id: string; photos: string[] } | null }
+  | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown; saved: { id: string; photos: string[]; opcionais: string | null } | null }
   | { ok: false; error: string };
 
 export async function autoFillPlate(placa: string): Promise<AutoFillResult> {

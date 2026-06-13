@@ -19,6 +19,8 @@ export type AdInput = {
   caixaCambio: string | null;
   municipio: string | null;
   valorFipe: number | null;
+  fipeReferencia: string | null; // mês/ano de referência da FIPE (ex.: "06/2026")
+  opcionais: string | null;      // texto livre do vendedor (ex.: "Blindado, teto solar")
 };
 
 export const AnuncioSchema = z.object({
