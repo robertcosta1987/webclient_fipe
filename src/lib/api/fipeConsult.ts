@@ -60,10 +60,18 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
   if (!isValidPlaca(placa)) return { ok: false, status: 400, error: "Placa inválida. Use o formato ABC1234 ou ABC1D23." };
   const code = FIPE_PRODUCT_CODE;
 
-  // 1. Per-tenant cache: this customer's own prior lookup of the plate is reused
-  //    (counted for reporting, never charged). Other tenants' rows aren't shared.
+  // Resolve the subscription up front: the cache is scoped to the SUBSCRIPTION,
+  // not the individual user/API key. Partners that share one API subscription
+  // (e.g. Moneycar + Profitcar) therefore share the cache — a plate looked up by
+  // one is served from cache (free) to the other. Falls back to the user id when
+  // there's no subscription. Other subscriptions/tenants stay isolated.
+  const plan = await subs.getSubPlan(ctx.userId).catch(() => null);
+  const cacheOwnerId = plan?.subscriptionId ?? ctx.userId;
+
+  // 1. Subscription cache: a prior lookup of the plate (by any key on the same
+  //    subscription) is reused (counted for reporting, never charged).
   try {
-    const hit = await ct.findFreshByPlaca(placa, code, ctx.userId);
+    const hit = await ct.findFreshByPlaca(placa, code, cacheOwnerId);
     if (hit) {
       await subs.recordUsage({ api: "checktudo", userId: ctx.userId, productCode: code, consultaId: hit.row.id, placa, source: "cache" }).catch(() => {});
       return { ok: true, placa, fromCache: true, consultaId: hit.row.id, fipe: await enrichFromCache(placa, extractFipe(hit.data)), raw: hit.data };
@@ -72,7 +80,6 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
 
   // 2. Enforce the subscription plan (reserve a credit/budget before the call).
   let reservation: { subscriptionId: string; planType: subs.PlanType | null; api: string; productCode: number; price: number | null } | null = null;
-  const plan = await subs.getSubPlan(ctx.userId).catch(() => null);
   if (plan && plan.planType) {
     const price = await subs.getProductPrice("checktudo", code).catch(() => null);
     const res = await subs.reserveConsult({ subscriptionId: plan.subscriptionId, planType: plan.planType, api: "checktudo", productCode: code, price });
@@ -93,7 +100,7 @@ export async function runFipeConsult(ctx: { userId: string; placa: string }): Pr
   try {
     const ins = await ct.insert({
       placa, productCode: result.product.code, productName: result.product.name,
-      data: result.data, queryId: result.queryId, upstreamLatencyMs: result.upstreamLatencyMs, ownerId: ctx.userId,
+      data: result.data, queryId: result.queryId, upstreamLatencyMs: result.upstreamLatencyMs, ownerId: cacheOwnerId,
     });
     consultaId = ins.id;
   } catch { /* keep the result even if persistence fails */ }
