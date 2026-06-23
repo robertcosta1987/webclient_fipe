@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "lgpd:retention": "tsx scripts/lgpd-retention.ts",
+    "lgpd:retention:apply": "tsx scripts/lgpd-retention.ts --apply"
   },
   "dependencies": {
     "mssql": "^12.5.2",
