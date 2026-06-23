@@ -210,6 +210,16 @@ export async function setParecer(id: string, veredito: string | null, motivo: st
     .query(`UPDATE checktudo_consultas SET parecer_veredito = @v, parecer_motivo = @m WHERE id = @id`);
 }
 
+/** Delete every CheckTudo consultation owned by a user (account erasure,
+ *  Art. 18 VI). Owner-scoped; returns the number of rows removed. */
+export async function deleteAllByOwner(ownerId: string): Promise<number> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`DELETE FROM checktudo_consultas WHERE owner_id = @owner`);
+  return r.rowsAffected[0] ?? 0;
+}
+
 // ── Summary extraction ──────────────────────────────────────────────────────
 // CheckTudo products nest their fields differently. Search (breadth-first) for
 // the first non-empty primitive under any of the candidate key names.

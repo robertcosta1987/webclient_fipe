@@ -62,6 +62,14 @@ export function TopBar({ user }: { user?: { email: string; role: string } | null
               Usage Report
             </Link>
           )}
+          {user && (
+            <Link
+              href="/meus-dados"
+              className={`erp-navtab${pathname?.startsWith("/meus-dados") ? " erp-navtab--active" : ""}`}
+            >
+              Meus dados
+            </Link>
+          )}
         </nav>
 
         {user && (

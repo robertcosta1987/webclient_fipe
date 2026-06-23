@@ -122,3 +122,23 @@ export async function deleteVehicle(id: string, ownerId: string): Promise<void> 
   await p.request().input("id", sql.UniqueIdentifier, id).input("owner", sql.UniqueIdentifier, ownerId)
     .query(`DELETE FROM test_vehicles WHERE id=@id AND owner_id=@owner;`);
 }
+
+/** All vehicles for an owner, for the data export (Art. 18 II/V). Owner-scoped. */
+export async function listByOwner(ownerId: string): Promise<Record<string, unknown>[]> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`SELECT CAST(id AS NVARCHAR(40)) AS id, ${COLS}, created_at, updated_at
+            FROM test_vehicles WHERE owner_id = @owner ORDER BY updated_at DESC`);
+  return r.recordset as Record<string, unknown>[];
+}
+
+/** Delete every vehicle owned by a user (account erasure, Art. 18 VI).
+ *  Owner-scoped; returns the number of rows removed. */
+export async function deleteAllByOwner(ownerId: string): Promise<number> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`DELETE FROM test_vehicles WHERE owner_id = @owner`);
+  return r.rowsAffected[0] ?? 0;
+}

@@ -1,6 +1,7 @@
 // db/users.ts — repository for auth: users + single-use invite codes.
 
 import "server-only";
+import { randomBytes } from "node:crypto";
 import sql from "mssql";
 import { getPool } from "./pool";
 
@@ -126,6 +127,39 @@ export async function setPassword(userId: string, passwordHash: string, password
 export async function deleteUser(id: string): Promise<void> {
   const p = await getPool();
   await p.request().input("id", sql.UniqueIdentifier, id).query(`DELETE FROM users WHERE id = @id`);
+}
+
+/** The caller's own account row for data export (Art. 18 II/V) — NEVER the
+ *  password hash/salt or API-key hash. Scoped by id. */
+export type UserExport = Pick<UserRow, "id" | "email" | "name" | "role" | "status" | "created_at"> & {
+  api_key_prefix: string | null;
+};
+export async function getExportById(id: string): Promise<UserExport | null> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("id", sql.UniqueIdentifier, id)
+    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, email, name, role, status, created_at, api_key_prefix
+            FROM users WHERE id = @id`);
+  return (r.recordset[0] as UserExport | undefined) ?? null;
+}
+
+/** Anonymize the account in place (Art. 18 VI erasure). We anonymize rather than
+ *  hard-delete because the subscription/usage ledger references user_id and must
+ *  be retained for fiscal/legal reasons (Art. 16). Login becomes impossible:
+ *  the e-mail is replaced with a non-routable token, the password is scrambled,
+ *  the API key is revoked, and the account is disabled. */
+export async function anonymizeUser(id: string): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("id", sql.UniqueIdentifier, id)
+    .input("email", sql.NVarChar(254), `anon-${id}@anonimizado.invalid`)
+    .input("rand", sql.NVarChar(256), randomBytes(32).toString("base64"))
+    .query(`UPDATE users SET
+              email = @email, name = NULL, status = 'disabled',
+              password_hash = @rand, password_salt = @rand,
+              api_key_hash = NULL, api_key_prefix = NULL,
+              must_change_password = 1
+            WHERE id = @id`);
 }
 
 export async function touchLastLogin(id: string): Promise<void> {

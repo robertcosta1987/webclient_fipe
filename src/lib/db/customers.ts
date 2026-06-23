@@ -44,3 +44,29 @@ export async function createCustomer(input: {
     `);
   return { id: r.recordset[0].id as string };
 }
+
+/** The CRM record linked to a login user (for the data export, Art. 18 II/V). */
+export async function getByUserId(userId: string): Promise<CustomerRow | null> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("uid", sql.UniqueIdentifier, userId)
+    .query(`SELECT TOP 1 CAST(id AS NVARCHAR(40)) AS id, name, company, cnpj, email, phone,
+                   CAST(subscription_id AS NVARCHAR(40)) AS subscription_id,
+                   CAST(user_id AS NVARCHAR(40)) AS user_id, status, created_at
+            FROM customers WHERE user_id = @uid`);
+  return (r.recordset[0] as CustomerRow | undefined) ?? null;
+}
+
+/** Anonymize the CRM record on account erasure (Art. 18 VI). The row is kept —
+ *  not hard-deleted — so the subscription/billing linkage stays intact for
+ *  fiscal/legal retention (Art. 16); all personal fields are stripped. */
+export async function anonymizeByUserId(userId: string): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("uid", sql.UniqueIdentifier, userId)
+    .query(`UPDATE customers SET
+              name = '(removido)', company = '(removido)', cnpj = NULL,
+              email = CONCAT('anon-', CAST(id AS NVARCHAR(40)), '@anonimizado.invalid'),
+              phone = NULL, status = 'deleted'
+            WHERE user_id = @uid`);
+}

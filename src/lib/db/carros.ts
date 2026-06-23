@@ -217,6 +217,16 @@ export async function removeById(id: string, ownerId: string): Promise<void> {
     .query("DELETE FROM carros_ativos WHERE id = @id AND owner_id = @owner");
 }
 
+/** Delete every vehicle owned by a user (account erasure, Art. 18 VI).
+ *  Owner-scoped; returns the number of rows removed. */
+export async function deleteAllByOwner(ownerId: string): Promise<number> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query("DELETE FROM carros_ativos WHERE owner_id = @owner");
+  return r.rowsAffected[0] ?? 0;
+}
+
 // Helpers
 function nz(s: unknown): string | null {
   if (s === null || s === undefined) return null;

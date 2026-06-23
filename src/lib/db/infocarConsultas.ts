@@ -139,6 +139,16 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
   return { id: r.recordset[0].id as string };
 }
 
+/** Delete every Infocar consultation owned by a user (account erasure,
+ *  Art. 18 VI). Owner-scoped; returns the number of rows removed. */
+export async function deleteAllByOwner(ownerId: string): Promise<number> {
+  const p = await getPool();
+  const r = await p.request()
+    .input("owner", sql.UniqueIdentifier, ownerId)
+    .query(`DELETE FROM infocar_consultas WHERE owner_id = @owner`);
+  return r.rowsAffected[0] ?? 0;
+}
+
 // Helpers
 function safeParse(raw: string): InfocarStored {
   try {
