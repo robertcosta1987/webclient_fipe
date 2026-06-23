@@ -7,6 +7,7 @@
 import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
+import { safeColumns } from "./identifiers";
 import type { VehiclePayload, FipeOption } from "../platform/types";
 import { parseValorFipe } from "../platform/types";
 
@@ -32,11 +33,11 @@ export type InfocarConsultaRow = {
   consulted_at: string;
 };
 
-const SELECT_COLS = [
+const SELECT_COLS = safeColumns([
   "id", "placa", "marca", "modelo", "ano_modelo",
   "codigo_fipe", "valor_fipe",
   "source_id", "upstream_latency_ms", "payload", "consulted_at",
-].join(", ");
+]);
 
 export type CachedHit = {
   row: InfocarConsultaRow;

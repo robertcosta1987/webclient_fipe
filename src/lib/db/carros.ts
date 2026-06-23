@@ -7,6 +7,7 @@
 import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
+import { assertIdent, safeColumns } from "./identifiers";
 import { parseValorFipe, type VehiclePayload } from "../platform/types";
 
 export type Carro = {
@@ -49,7 +50,8 @@ const ALL_COLS = [
   "carroceria", "codigo_fipe", "descricao_fipe", "valor_fipe",
   "criado_em", "atualizado_em",
 ] as const;
-const SELECT_COLS = ALL_COLS.join(", ");
+// Whitelisted at module load: every interpolated column must be a bare identifier.
+const SELECT_COLS = safeColumns(ALL_COLS);
 
 // Subset of columns the UI can edit. id/placa/criado_em/atualizado_em are
 // not editable: id and criado_em are immutable, atualizado_em is trigger-
@@ -117,10 +119,10 @@ export async function search(q: string, scope: SearchScope, ownerId: string, lim
   } else if (scope === "qualquer") {
     req.input("q", sql.NVarChar(200), `%${q}%`);
     const cols = TEXT_SCOPES.filter((s) => s !== "qualquer");
-    cond += ` AND (${cols.map((c) => `${c} LIKE @q`).join(" OR ")})`;
+    cond += ` AND (${cols.map((c) => `${assertIdent(c)} LIKE @q`).join(" OR ")})`;
   } else {
     req.input("q", sql.NVarChar(200), `%${q}%`);
-    cond += ` AND ${scope} LIKE @q`;
+    cond += ` AND ${assertIdent(scope)} LIKE @q`;
   }
 
   const r = await req.query(
@@ -204,7 +206,7 @@ export async function updateById(id: string, patch: Partial<Record<EditableCol, 
       const str = (v === "" || v === null || v === undefined) ? null : String(v);
       req.input(k, sql.NVarChar(300), str);
     }
-    sets.push(`${k} = @${k}`);
+    sets.push(`${assertIdent(k)} = @${k}`);
   }
   await req.query(`UPDATE carros_ativos SET ${sets.join(", ")} WHERE id = @id AND owner_id = @owner`);
 }

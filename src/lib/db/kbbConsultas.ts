@@ -7,6 +7,7 @@
 import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
+import { safeColumns } from "./identifiers";
 import type { MolicarPayload } from "../pricing/types";
 
 export type KbbConsultaRow = {
@@ -24,11 +25,11 @@ export type KbbConsultaRow = {
   consulted_at: string;
 };
 
-const SELECT_COLS = [
+const SELECT_COLS = safeColumns([
   "id", "placa", "brand", "model", "version", "model_year",
   "fair_price_used_dealer", "molicar_price",
   "source_id", "upstream_latency_ms", "payload", "consulted_at",
-].join(", ");
+]);
 
 export type CachedHit = {
   row: KbbConsultaRow;

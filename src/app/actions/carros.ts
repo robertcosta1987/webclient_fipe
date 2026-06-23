@@ -19,6 +19,7 @@ import { fetchVehicleByPlate } from "@/lib/platform/client";
 import { type VehiclePayload, type FipeOption } from "@/lib/platform/types";
 import { isValidPlaca, normalizePlaca } from "@/lib/placa/normalize";
 import { requireUserId } from "@/lib/auth/server";
+import { isValidPatch, isValidVehicleWrite } from "@/lib/validation/schemas";
 
 export type LookupResult =
   | {
@@ -86,6 +87,7 @@ export type InsertResult =
 export async function insertCarro(rawPlaca: string, payload: Partial<VehiclePayload>): Promise<InsertResult> {
   const placa = normalizePlaca(rawPlaca);
   if (!isValidPlaca(placa)) return { ok: false, error: "Placa inválida." };
+  if (!isValidVehicleWrite(payload)) return { ok: false, error: "Dados do veículo inválidos." };
 
   try {
     const ownerId = await requireUserId();
@@ -105,6 +107,7 @@ export type UpdateResult = { ok: true } | { ok: false; error: string };
 
 export async function updateCarro(id: string, patch: Partial<Record<EditableCol, string | number | null>>): Promise<UpdateResult> {
   if (!id) return { ok: false, error: "ID ausente." };
+  if (!isValidPatch(patch)) return { ok: false, error: "Dados inválidos." };
   try {
     const ownerId = await requireUserId();
     await carros.updateById(id, patch, ownerId);

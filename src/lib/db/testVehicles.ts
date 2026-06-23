@@ -3,6 +3,7 @@
 import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
+import { safeColumns } from "./identifiers";
 
 export type VehicleInput = {
   placa: string | null;
@@ -67,10 +68,13 @@ function bind(req: sql.Request, v: VehicleInput): sql.Request {
     .input("photos", sql.NVarChar(sql.MAX), v.photos ?? null);
 }
 
-const COLS = `placa, marca, modelo, versao, ano_modelo, ano_fabricacao, chassi, num_motor,
-  combustivel, cor_veiculo, tipo_veiculo, especie_veiculo, nacional, potencia, cilindradas,
-  eixos, cap_max_tracao, capacidade_passageiro, caixa_cambio, num_carroceria, codigo_fipe,
-  fipe_id, versao_fipe, valor_atual, opcionais, photo_count, photos`;
+// Whitelisted column list (validated at module load). Order MUST match VALS.
+const COLS = safeColumns([
+  "placa", "marca", "modelo", "versao", "ano_modelo", "ano_fabricacao", "chassi", "num_motor",
+  "combustivel", "cor_veiculo", "tipo_veiculo", "especie_veiculo", "nacional", "potencia", "cilindradas",
+  "eixos", "cap_max_tracao", "capacidade_passageiro", "caixa_cambio", "num_carroceria", "codigo_fipe",
+  "fipe_id", "versao_fipe", "valor_atual", "opcionais", "photo_count", "photos",
+]);
 const VALS = `@placa, @marca, @modelo, @versao, @anoModelo, @anoFabricacao, @chassi, @numMotor,
   @combustivel, @corVeiculo, @tipoVeiculo, @especieVeiculo, @nacional, @potencia, @cilindradas,
   @eixos, @capMaxTracao, @capacidadePassageiro, @caixaCambio, @numCarroceria, @codigoFipe,

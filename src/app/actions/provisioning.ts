@@ -13,6 +13,7 @@ import * as subs from "@/lib/db/subscriptions";
 import * as customers from "@/lib/db/customers";
 import { createApimSubscription } from "@/lib/apim";
 import { isValidProduct, productName } from "@/lib/checktudo/types";
+import { customerIdentitySchema } from "@/lib/validation/schemas";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,6 +89,10 @@ export async function createSubscription(input: CreateSubInput): Promise<CreateS
   const cnpj = normalizeCnpj(input.cnpj ?? "");
   if (!cnpj) return { ok: false, error: "Informe um CNPJ válido (14 dígitos)." };
   if (!EMAIL_RE.test(email)) return { ok: false, error: "Informe um e-mail válido." };
+  // Defesa adicional (zod): limites de tamanho + formato do conjunto de identidade.
+  if (!customerIdentitySchema.safeParse({ nome, empresa, email }).success) {
+    return { ok: false, error: "Dados de identificação inválidos." };
+  }
 
   const planType = input.planType;
   if (planType !== "consultas" && planType !== "cash" && planType !== "ondemand") {

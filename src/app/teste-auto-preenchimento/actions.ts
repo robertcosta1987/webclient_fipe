@@ -9,6 +9,7 @@ import { requireScope } from "@/lib/auth/server";
 import { runFipeConsult, type FipeData } from "@/lib/api/fipeConsult";
 import { uploadImageDataUrls } from "@/lib/storage/blob";
 import * as veh from "@/lib/db/testVehicles";
+import { isValidVehicleWrite } from "@/lib/validation/schemas";
 
 export type AutoFillResult =
   | { ok: true; placa: string; source: "live" | "cache"; fipe: FipeData; raw: unknown; saved: { id: string; photos: string[]; opcionais: string | null } | null }
@@ -33,6 +34,7 @@ export async function saveVehicle(input: veh.VehicleInput, photoDataUrls: string
   try { ({ userId } = await requireScope()); }
   catch { return { ok: false, error: "Sessão expirada. Faça login novamente." }; }
   if (!input.placa && !input.chassi) return { ok: false, error: "Informe ao menos a placa ou o chassi." };
+  if (!isValidVehicleWrite(input)) return { ok: false, error: "Dados do veículo inválidos." };
 
   // Upload the photos to blob and store their public URLs with the vehicle.
   const urls = await uploadImageDataUrls(photoDataUrls ?? []).catch(() => [] as string[]);

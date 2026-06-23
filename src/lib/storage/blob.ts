@@ -1,5 +1,10 @@
 // lib/storage/blob.ts — upload images to the Azure Storage static website ($web)
 // via the Blob REST API + container SAS (no SDK). Returns public URLs.
+//
+// LGPD: $web is PUBLIC by design (listing photos are meant to be shared). Vehicle
+// photos may incidentally show a license plate. Whether this is undue personal
+// data — and, if so, moving these to a private container + signed URLs — is an
+// open decision (docs/LGPD/OPEN_DECISIONS.md #3). No behavior change until decided.
 
 import "server-only";
 import { randomUUID } from "node:crypto";

@@ -11,6 +11,7 @@
 import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
+import { safeColumns } from "./identifiers";
 import type { ChecktudoData } from "../checktudo/types";
 
 export type ChecktudoConsultaRow = {
@@ -32,11 +33,11 @@ export type ChecktudoConsultaRow = {
   parecer_motivo: string | null;
 };
 
-const SELECT_COLS = [
+const SELECT_COLS = safeColumns([
   "id", "placa", "product_code", "product_name", "brand", "model",
   "model_year", "chassi", "query_id", "upstream_latency_ms", "payload", "consulted_at",
   "recall_afetado", "recall_motivo", "parecer_veredito", "parecer_motivo",
-].join(", ");
+]);
 
 export type CachedHit = {
   row: ChecktudoConsultaRow;
