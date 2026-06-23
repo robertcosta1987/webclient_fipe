@@ -21,20 +21,22 @@ import * as checktudo from "@/lib/db/checktudoConsultas";
 import * as infocar from "@/lib/db/infocarConsultas";
 import * as kbb from "@/lib/db/kbbConsultas";
 import * as apiLogs from "@/lib/db/apiRequestLogs";
+import * as consents from "@/lib/db/consents";
 
 export type EraseSummary = {
-  deleted: { carros_ativos: number; test_vehicles: number; checktudo: number; infocar: number; kbb: number };
+  deleted: { carros_ativos: number; test_vehicles: number; checktudo: number; infocar: number; kbb: number; consents: number };
   anonymized: { users: boolean; customers: boolean; api_request_logs: number };
 };
 
 export async function eraseAccount(userId: string): Promise<EraseSummary> {
   // 1) Hard-delete operational data owned by the user.
-  const [carrosN, testN, ctN, icN, kbN] = await Promise.all([
+  const [carrosN, testN, ctN, icN, kbN, consN] = await Promise.all([
     carros.deleteAllByOwner(userId),
     testVehicles.deleteAllByOwner(userId),
     checktudo.deleteAllByOwner(userId),
     infocar.deleteAllByOwner(userId),
     kbb.deleteAllByOwner(userId),
+    consents.deleteAllByUser(userId),
   ]);
 
   // 2) Anonymize records kept for fiscal/legal retention (Art. 16).
@@ -43,7 +45,7 @@ export async function eraseAccount(userId: string): Promise<EraseSummary> {
   await users.anonymizeUser(userId); // last: invalidates login
 
   return {
-    deleted: { carros_ativos: carrosN, test_vehicles: testN, checktudo: ctN, infocar: icN, kbb: kbN },
+    deleted: { carros_ativos: carrosN, test_vehicles: testN, checktudo: ctN, infocar: icN, kbb: kbN, consents: consN },
     anonymized: { users: true, customers: true, api_request_logs: logsN },
   };
 }

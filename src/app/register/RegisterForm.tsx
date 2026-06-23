@@ -38,6 +38,16 @@ export function RegisterForm({ inviteFromUrl }: { inviteFromUrl?: string }) {
             <input id="invite" name="invite" type="text" defaultValue={inviteFromUrl ?? ""} required className="input" />
           </div>
 
+          {/* Consentimento explícito, desmarcado por padrão (Art. 8º) */}
+          <div className="auth-field" style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+            <input id="consent" name="consent" type="checkbox" required style={{ marginTop: 3 }} />
+            <label htmlFor="consent" style={{ fontWeight: 400 }}>
+              Li e aceito a{" "}
+              <Link href="/privacidade" target="_blank">Política de Privacidade</Link>{" "}
+              e o tratamento dos meus dados conforme a LGPD.
+            </label>
+          </div>
+
           <div className="auth-actions">
             <button type="submit" disabled={pending} className="btn-primary">
               {pending ? "Criando…" : "Criar conta"}

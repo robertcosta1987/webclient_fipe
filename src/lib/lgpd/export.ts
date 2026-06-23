@@ -12,6 +12,7 @@ import * as checktudo from "@/lib/db/checktudoConsultas";
 import * as infocar from "@/lib/db/infocarConsultas";
 import * as kbb from "@/lib/db/kbbConsultas";
 import * as apiLogs from "@/lib/db/apiRequestLogs";
+import * as consents from "@/lib/db/consents";
 import { getSubPlan } from "@/lib/db/subscriptions";
 
 export type UserDataExport = {
@@ -26,13 +27,14 @@ export type UserDataExport = {
   consultas_infocar: Awaited<ReturnType<typeof infocar.listRecent>>;
   consultas_kbb: Awaited<ReturnType<typeof kbb.listRecent>>;
   api_request_logs: Record<string, unknown>[];
+  consentimentos: Awaited<ReturnType<typeof consents.listByUser>>;
 };
 
 /** Collect everything tied to `userId`. The id comes from `requireUserId()` at
  *  the call site — never from request input — so this can only ever return the
  *  caller's own records. */
 export async function collectUserData(userId: string): Promise<UserDataExport> {
-  const [account, customer, plan, carrosRows, testeRows, ct, ic, kb, logs] = await Promise.all([
+  const [account, customer, plan, carrosRows, testeRows, ct, ic, kb, logs, cons] = await Promise.all([
     users.getExportById(userId),
     customers.getByUserId(userId),
     getSubPlan(userId),
@@ -42,6 +44,7 @@ export async function collectUserData(userId: string): Promise<UserDataExport> {
     infocar.listRecent(userId, 10_000),
     kbb.listRecent(userId, 10_000),
     apiLogs.listByUser(userId),
+    consents.listByUser(userId),
   ]);
   return {
     exported_at: new Date().toISOString(),
@@ -55,5 +58,6 @@ export async function collectUserData(userId: string): Promise<UserDataExport> {
     consultas_infocar: ic,
     consultas_kbb: kb,
     api_request_logs: logs,
+    consentimentos: cons,
   };
 }

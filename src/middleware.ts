@@ -11,8 +11,17 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = ["/login", "/register"];
 
+// Open to everyone (logged in OR out) with no redirect either way — e.g. the
+// privacy policy must be reachable before login AND while authenticated (Art. 9º
+// transparency). Distinct from PUBLIC_PATHS, which bounce logged-in users away.
+const OPEN_PATHS = ["/privacidade"];
+
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function isOpen(pathname: string): boolean {
+  return OPEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function middleware(req: NextRequest) {
@@ -21,6 +30,9 @@ export async function middleware(req: NextRequest) {
   // Programmatic API: authenticated by its own API key (Bearer / x-api-key),
   // not the session cookie. Skip the login-redirect guard entirely.
   if (pathname.startsWith("/api/v1/")) return NextResponse.next();
+
+  // Always-open pages (e.g. the privacy policy): no auth guard, no redirects.
+  if (isOpen(pathname)) return NextResponse.next();
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySession(token, process.env.AUTH_SECRET ?? "");

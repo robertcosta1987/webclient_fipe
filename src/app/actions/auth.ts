@@ -5,10 +5,13 @@
 // The first user ever created becomes 'admin'.
 
 import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession, getSession } from "@/lib/auth/server";
 import * as users from "@/lib/db/users";
+import { recordConsent } from "@/lib/db/consents";
+import { CONSENT_PRIVACY_POLICY, PRIVACY_POLICY_VERSION } from "@/lib/lgpd/policy";
 
 export type AuthResult = { error: string } | undefined;
 
@@ -20,10 +23,14 @@ export async function register(formData: FormData): Promise<AuthResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const invite = String(formData.get("invite") ?? "").trim();
+  // Explicit, unbundled consent (no pre-ticked box) — Art. 8º. The checkbox must
+  // be checked to proceed; we record the version accepted below.
+  const consent = formData.get("consent");
 
   if (!EMAIL_RE.test(email)) return { error: "Informe um e-mail válido." };
   if (password.length < MIN_PW) return { error: `A senha precisa ter pelo menos ${MIN_PW} caracteres.` };
   if (!invite) return { error: "Informe o código de convite." };
+  if (consent !== "on") return { error: "É necessário aceitar a Política de Privacidade para continuar." };
 
   try {
     if (!(await users.isInviteValid(invite))) {
@@ -48,6 +55,13 @@ export async function register(formData: FormData): Promise<AuthResult> {
       await users.deleteUser(id);
       return { error: "Código de convite inválido, expirado ou já utilizado." };
     }
+
+    // Record consent (Art. 8º §6: prove which policy version was accepted).
+    // Best-effort: a logging failure must not undo a completed registration.
+    try {
+      const ip = ((await headers()).get("x-forwarded-for") || "").split(",")[0].trim() || null;
+      await recordConsent({ userId: id, kind: CONSENT_PRIVACY_POLICY, policyVersion: PRIVACY_POLICY_VERSION, ip });
+    } catch { /* consent log is best-effort */ }
 
     await createSession({ userId: id, role, email });
   } catch (err) {

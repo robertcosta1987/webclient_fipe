@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Big_Shoulders, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./enterprise.css";
 import { TopBar } from "@/components/TopBar";
 import { getSession } from "@/lib/auth/server";
+import { DPO } from "@/lib/lgpd/policy";
 
 // Site-wide enterprise / ASP.NET-WebForms skin. `true` adds the `erp` class to
 // <body>, under which enterprise.css remaps the theme variables, restyles the
@@ -65,6 +67,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <div className="fixed inset-0 -z-10 atmos" aria-hidden />
         <TopBar user={user} />
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8">{children}</main>
+        <footer className="border-t border-[var(--border,#3334)] text-xs opacity-70">
+          <div className="max-w-7xl mx-auto w-full px-4 sm:px-8 py-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>© Placas360 / DadoCar</span>
+            <Link href="/privacidade" className="underline">Política de Privacidade</Link>
+            <span>Encarregado (DPO): {DPO.email}</span>
+          </div>
+        </footer>
       </body>
     </html>
   );
