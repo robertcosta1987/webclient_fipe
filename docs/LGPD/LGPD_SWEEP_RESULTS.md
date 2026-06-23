@@ -19,13 +19,19 @@
 | 3b | Senhas e sessões | Art. 46 | ✅ | ✅ |
 | 4 | Segredos e configuração | Art. 46/49 | ✅ | ✅ (Key Vault recomendado — ❓ #9) |
 | 5 | Direitos do titular | Art. 18 | ❌ | ✅ (export + exclusão/anonimização) |
-| 6 | Retenção e expurgo | Art. 15/16 | ❌ | ✅ mecanismo · ❓ prazos (#2) |
-| 7 | Transparência: política e consentimento | Art. 8/9 | ❌ | ✅ · ❓ DPO/sub-operadores (#1/#4) |
-| 8 | Governança: DPO, incidentes, RoPA | Art. 37/41/48 | ⚠️ | ✅ · ❓ identidade do DPO (#1) |
-| 9 | Transporte e validação de entrada | Art. 46/47 | ⚠️ | ✅ · ❓ imagens no Blob (#3) |
+| 6 | Retenção e expurgo | Art. 15/16 | ❌ | ✅ (prazos confirmados + job agendado) |
+| 7 | Transparência: política e consentimento | Art. 8/9 | ❌ | ✅ (DPO + operadores definidos) |
+| 8 | Governança: DPO, incidentes, RoPA | Art. 37/41/48 | ⚠️ | ✅ |
+| 9 | Transporte e validação de entrada | Art. 46/47 | ⚠️ | ✅ |
 
-**Resumo:** 3 ❌ e 3 ⚠️ originais foram fechados em engenharia. As pendências
-remanescentes são **decisões jurídicas/negócio** (ver `OPEN_DECISIONS.md`), não código.
+**Resumo:** as 3 ❌ e 3 ⚠️ originais foram fechadas. Após a rodada de decisões
+(2026-06-23), os itens 1–6 do `OPEN_DECISIONS.md` foram resolvidos; restam apenas 3
+pendências jurídicas/infra (idade mínima, revisão jurídica do texto, Key Vault).
+
+## Aplicado em 2026-06-23 (homologação)
+- **Migração `0021_user_consents`** aplicada em homologação (`dadocar-dev-sql-webclient-dv02-brs` / `carros_ativos_db`) — tabela criada (0 linhas).
+- **Decisões preenchidas:** DPO (`vaner@`/`robert@`/`gil@rubix360.com.br`), retenção (1 ano logs/consultas; 2 anos contas inativas), Blob `$web` mantido público, lista de operadores.
+- **Job de retenção agendado:** Azure Function timer diário (03:00 UTC) em `services/deidentification-job` — **DRY-RUN por padrão**, pronto para deploy (habilitar `RETENTION_APPLY=1` após conferir o dry-run).
 
 ---
 
@@ -95,15 +101,11 @@ remanescentes são **decisões jurídicas/negócio** (ver `OPEN_DECISIONS.md`), 
 ---
 
 ## Decisões residuais (❓) — ver `OPEN_DECISIONS.md`
-1. Identidade + contato do Encarregado/DPO.
-2. Prazos de retenção por classe (logs, consultas, contas inativas) vs. mínimos fiscais.
-3. Imagens de anúncio no Blob público: contêm dado pessoal? Base legal? Migrar p/ privado+assinado?
-4. Lista oficial de operadores/sub-operadores + contratos.
-5. Quais tratamentos dependem de consentimento (ex.: marketing).
-6. Ativar anonimização automática de contas inativas (tarefa opt-in) e a partir de quantos dias.
-7. Idade mínima / menores (Art. 14) — necessidade de age gate.
+Itens 1–6 resolvidos em 2026-06-23. Permanecem:
+7. Idade mínima / menores (Art. 14) — confirmar não-aplicabilidade (público B2B).
 8. Revisão jurídica do texto final da política.
 9. Azure Key Vault + rotação de segredos.
+*(Pendência operacional de #4: formalizar os contratos de operador com os sub-operadores listados.)*
 
 ## Como verificar (gates da homologação)
 - `next build`, `npx tsc --noEmit`, `npx eslint` — **verdes**.

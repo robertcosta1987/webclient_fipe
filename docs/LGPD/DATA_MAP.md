@@ -2,8 +2,9 @@
 
 > Registro das Operações de Tratamento (Art. 37) + inventário de dados pessoais
 > (Art. 5/6). Mantido junto ao código; atualizar a cada migração que toque dados
-> pessoais. Prazos marcados **PROVISÓRIO** dependem de decisão legal — ver
-> `OPEN_DECISIONS.md`. Implementação dos prazos: `src/lib/lgpd/retention.ts`.
+> pessoais. Prazos de retenção **confirmados** (OPEN_DECISIONS #2): 1 ano para
+> logs/consultas, 2 anos para contas inativas. Implementação: `src/lib/lgpd/retention.ts`
+> e `services/deidentification-job`.
 >
 > **Criptografia em repouso:** Azure SQL Database (TDE habilitado por padrão) e
 > Azure Blob (criptografia de serviço). **Em trânsito:** HTTPS/TLS.
@@ -26,14 +27,14 @@
 ## 3. `api_request_logs` — auditoria da API programática
 | Campo | Pessoal? | Base legal | Retenção |
 |---|---|---|---|
-| `placa`, `ip`, `user_agent`, `country`, `city` | Sim | Legítimo interesse (IX) — segurança/antifraude | **PROVISÓRIO: anonimizar após 365 dias** |
+| `placa`, `ip`, `user_agent`, `country`, `city` | Sim | Legítimo interesse (IX) — segurança/antifraude | Anonimizar após **1 ano** |
 | `api_key_prefix` | Pseudônimo | Legítimo interesse (IX) | Mantido p/ conciliação |
 | `subscription_id`, `user_id`, `product_code`, `outcome`, `charged`, `http_status`, `duration_ms`, `created_at` | Meta/cobrança | Obrigação legal (II) / contrato (V) | Mantido p/ fins fiscais (Art. 16) |
 
 ## 4. `checktudo_consultas` / `infocar_consultas` / `kbb_consultas` — consultas veiculares
 | Campo | Pessoal? | Base legal | Retenção |
 |---|---|---|---|
-| `placa`, `chassi`, `payload` (dados do veículo) | Sim (vínculo a veículo/titular) | Execução de contrato (V) | **PROVISÓRIO: excluir após 365 dias** |
+| `placa`, `chassi`, `payload` (dados do veículo) | Sim (vínculo a veículo/titular) | Execução de contrato (V) | Excluir após **1 ano** |
 | `owner_id` | Vínculo | Execução de contrato (V) | Idem |
 | sumário (`brand`, `model`, `model_year`, …), `consulted_at` | Meta | Execução de contrato (V) | Idem |
 
@@ -51,12 +52,14 @@
 ## 7. Armazenamento de mídia — Azure Blob `$web`
 | Item | Pessoal? | Base legal | Observação |
 |---|---|---|---|
-| Imagens de anúncio (`cars/<uuid>/<n>.jpg`) | Possível (fotos do veículo; placa pode aparecer) | Execução de contrato (V) | Contêiner **público** por design. Ver decisão em `OPEN_DECISIONS.md` (item 3). |
+| Imagens de anúncio (`cars/<uuid>/<n>.jpg`) | Possível (fotos do veículo; placa pode aparecer) | Execução de contrato / legítimo interesse do anunciante (V/IX) | Contêiner **público** por design (decisão #3: manter público — fotos destinadas à divulgação). |
 
 ## 8. Operadores / sub-operadores (Art. 9º / 18 VII)
-**[A DEFINIR — lista oficial em `OPEN_DECISIONS.md`]**: provedor de nuvem (Azure),
-provedores de dados veiculares/preço (FIPE/KBB/Infocar/CheckTudo), provedor de e-mail,
-e demais terceiros que recebam dados. Cada um sob contrato de operador.
+- **Microsoft Azure** — hospedagem, banco de dados (Azure SQL), armazenamento de imagens (Blob) e gateway de API (APIM).
+- **Provedores de dados veiculares/preço** — FIPE/Moneycar/Profitcar, KBB/Molicar, Infocar, CheckTudo (conforme a consulta).
+
+Cada operador sob contrato e dever de confidencialidade. *Formalização dos contratos
+de operador é ação jurídica em curso (OPEN_DECISIONS #4).*
 
 ## Direitos do titular (Art. 18) — onde são exercidos
 - **Acesso/portabilidade:** `GET /api/me/export` (JSON/CSV) e tela `/meus-dados`.

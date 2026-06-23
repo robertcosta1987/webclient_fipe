@@ -2,9 +2,9 @@
 // server-only) so the windows and the generated SQL are unit-testable. The actual
 // purge is run by scripts/lgpd-retention.ts (cron/Function), dry-run by default.
 //
-// ⚠️ The windows below are PROVISÓRIO (engineering placeholders). The real periods
-// are a legal/business decision — see docs/LGPD/OPEN_DECISIONS.md. Override per
-// environment with LGPD_RETENTION_*_DAYS without code changes.
+// Windows below are the CONFIRMED business policy (OPEN_DECISIONS #2): 1 ano para
+// logs/consultas, 2 anos para contas inativas. Override por ambiente com
+// LGPD_RETENTION_*_DAYS, sem mudar código.
 
 export type RetentionConfig = {
   apiLogPiiDays: number;      // anonymize plate/IP/UA/geo in api_request_logs after N days
@@ -13,9 +13,9 @@ export type RetentionConfig = {
 };
 
 export const DEFAULT_RETENTION: RetentionConfig = {
-  apiLogPiiDays: 365,        // PROVISÓRIO
-  consultationDays: 365,     // PROVISÓRIO
-  inactiveAccountDays: 730,  // PROVISÓRIO (2 anos)
+  apiLogPiiDays: 365,        // 1 ano (confirmado)
+  consultationDays: 365,     // 1 ano (confirmado)
+  inactiveAccountDays: 730,  // 2 anos (confirmado)
 };
 
 function intEnv(v: string | undefined, fallback: number): number {

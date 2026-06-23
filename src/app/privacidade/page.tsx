@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DPO, PRIVACY_POLICY_VERSION } from "@/lib/lgpd/policy";
+import { DPO_CONTACTS, PRIVACY_POLICY_VERSION } from "@/lib/lgpd/policy";
 
 export const metadata = { title: "Política de Privacidade · Placas360" };
 
@@ -56,19 +56,22 @@ export default function PrivacidadePage() {
         <h2 className="text-xl font-semibold">4. Compartilhamento e operadores</h2>
         <p>
           Compartilhamos dados apenas com operadores necessários à prestação do serviço, sob contrato e dever de
-          confidencialidade. Lista de sub-operadores (provedor de nuvem, provedores de dados veiculares/preço,
-          e-mail e demais): <strong>[A DEFINIR — ver docs/LGPD/OPEN_DECISIONS.md]</strong>. Não vendemos dados
-          pessoais.
+          confidencialidade:
         </p>
+        <ul className="list-disc pl-6">
+          <li><strong>Microsoft Azure</strong> — hospedagem, banco de dados, armazenamento de imagens e gateway de API.</li>
+          <li><strong>Provedores de dados veiculares e de preço</strong> — consultas FIPE/Moneycar/Profitcar, KBB/Molicar, Infocar e CheckTudo, conforme a consulta solicitada.</li>
+        </ul>
+        <p>Não vendemos dados pessoais.</p>
       </section>
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">5. Retenção</h2>
         <p>
-          Mantemos os dados pelo tempo necessário às finalidades acima e às obrigações legais. Os prazos por
-          categoria (logs técnicos, consultas, contas inativas) estão em definição —{" "}
-          <strong>[A DEFINIR — ver docs/LGPD/OPEN_DECISIONS.md]</strong>. Registros exigidos por lei (ex.: fiscais)
-          são mantidos de forma anonimizada após o pedido de exclusão (Art. 16).
+          Mantemos os dados pelo tempo necessário às finalidades acima e às obrigações legais. Como regra geral,
+          registros técnicos (logs) e consultas veiculares são mantidos por até <strong>1 ano</strong>; contas
+          inativas são anonimizadas após <strong>2 anos</strong>. Registros exigidos por lei (ex.: fiscais) são
+          mantidos de forma anonimizada após o pedido de exclusão (Art. 16).
         </p>
       </section>
 
@@ -95,9 +98,14 @@ export default function PrivacidadePage() {
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">8. Encarregado pelo Tratamento de Dados (DPO)</h2>
         <p>
-          {DPO.name} — <a href={`mailto:${DPO.email}`} className="underline">{DPO.email}</a>.{" "}
-          <em>(Contato em definição — ver docs/LGPD/OPEN_DECISIONS.md.)</em>
+          Para exercer seus direitos ou tirar dúvidas sobre o tratamento de dados, contate o
+          Encarregado (DPO):
         </p>
+        <ul className="list-disc pl-6">
+          {DPO_CONTACTS.map((email) => (
+            <li key={email}><a href={`mailto:${email}`} className="underline">{email}</a></li>
+          ))}
+        </ul>
       </section>
 
       <section className="space-y-2">
