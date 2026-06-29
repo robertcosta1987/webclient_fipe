@@ -54,9 +54,13 @@ const LOG_PII_PRESENT =
 /** Build the retention task list from a config. Every statement is parameterized
  *  on @cutoff (no date is ever string-interpolated) and owner-agnostic. */
 export function retentionTasks(cfg: RetentionConfig): RetentionTask[] {
+  // MOAT: cached consults (the vehicle-data enrichment we sell) are NEVER deleted.
+  // Past the window we DE-IDENTIFY them — drop the personal linkage (`owner_id` =
+  // which user ran the consult) while KEEPING the vehicle `payload`. Idempotent:
+  // rows already de-identified (owner_id IS NULL) are skipped.
   const consult = (table: string): Pick<RetentionTask, "countSql" | "applySql"> => ({
-    countSql: `SELECT COUNT(*) AS n FROM ${table} WHERE consulted_at < @cutoff`,
-    applySql: `DELETE FROM ${table} WHERE consulted_at < @cutoff`,
+    countSql: `SELECT COUNT(*) AS n FROM ${table} WHERE consulted_at < @cutoff AND owner_id IS NOT NULL`,
+    applySql: `UPDATE ${table} SET owner_id = NULL WHERE consulted_at < @cutoff AND owner_id IS NOT NULL`,
   });
   return [
     {
@@ -64,9 +68,9 @@ export function retentionTasks(cfg: RetentionConfig): RetentionTask[] {
       countSql: `SELECT COUNT(*) AS n FROM api_request_logs WHERE created_at < @cutoff AND ${LOG_PII_PRESENT}`,
       applySql: `UPDATE api_request_logs SET placa=NULL, ip=NULL, user_agent=NULL, country=NULL, city=NULL WHERE created_at < @cutoff AND ${LOG_PII_PRESENT}`,
     },
-    { key: "consult_checktudo", label: "Excluir consultas CheckTudo antigas", days: cfg.consultationDays, optIn: false, ...consult("checktudo_consultas") },
-    { key: "consult_infocar", label: "Excluir consultas Infocar antigas", days: cfg.consultationDays, optIn: false, ...consult("infocar_consultas") },
-    { key: "consult_kbb", label: "Excluir consultas KBB antigas", days: cfg.consultationDays, optIn: false, ...consult("kbb_consultas") },
+    { key: "consult_checktudo", label: "Anonimizar consultas CheckTudo antigas (mantém dados do veículo)", days: cfg.consultationDays, optIn: false, ...consult("checktudo_consultas") },
+    { key: "consult_infocar", label: "Anonimizar consultas Infocar antigas (mantém dados do veículo)", days: cfg.consultationDays, optIn: false, ...consult("infocar_consultas") },
+    { key: "consult_kbb", label: "Anonimizar consultas KBB antigas (mantém dados do veículo)", days: cfg.consultationDays, optIn: false, ...consult("kbb_consultas") },
     {
       key: "inactive_accounts", label: "Desativar+anonimizar contas inativas", days: cfg.inactiveAccountDays, optIn: true,
       countSql: `SELECT COUNT(*) AS n FROM users WHERE status='active' AND last_login_at IS NOT NULL AND last_login_at < @cutoff`,

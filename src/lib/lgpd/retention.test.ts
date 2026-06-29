@@ -33,7 +33,12 @@ test("account anonymization is opt-in; log/consultation tasks are default", () =
   const tasks = retentionTasks(DEFAULT_RETENTION);
   const optIn = tasks.filter((t) => t.optIn).map((t) => t.key);
   assert.deepEqual(optIn, ["inactive_accounts"]);
-  // PII anonymization keeps the row (UPDATE), consultations are deleted.
+  // PII anonymization keeps the row (UPDATE). Cached consults are the data-enrichment
+  // MOAT: NEVER deleted — they are de-identified (owner_id → NULL), vehicle payload kept.
   assert.match(tasks.find((t) => t.key === "apilog_pii")!.applySql, /^UPDATE api_request_logs SET/);
-  assert.match(tasks.find((t) => t.key === "consult_kbb")!.applySql, /^DELETE FROM kbb_consultas/);
+  for (const key of ["consult_checktudo", "consult_infocar", "consult_kbb"]) {
+    const t = tasks.find((x) => x.key === key)!;
+    assert.match(t.applySql, /^UPDATE \w+_consultas SET owner_id = NULL WHERE consulted_at < @cutoff AND owner_id IS NOT NULL$/, `${key} must de-identify, not delete`);
+    assert.doesNotMatch(t.applySql, /DELETE/, `${key} must never DELETE (MOAT)`);
+  }
 });
