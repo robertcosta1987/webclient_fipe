@@ -21,13 +21,23 @@ test("user export query never selects password or API-key secrets", () => {
   }
 });
 
-test("every erasure delete is owner-scoped (owner_id = @owner)", () => {
-  for (const f of ["carros.ts", "testVehicles.ts", "checktudoConsultas.ts", "infocarConsultas.ts", "kbbConsultas.ts"]) {
+test("erasure of the user's OWN data is an owner-scoped DELETE", () => {
+  for (const f of ["carros.ts", "testVehicles.ts"]) {
     const src = read(f);
-    // The function body up to its first closing brace at column 0 (quote style varies).
     const m = src.match(/export async function deleteAllByOwner[\s\S]*?\n}/);
     assert.ok(m, `deleteAllByOwner not found in ${f}`);
     assert.match(m![0], /DELETE FROM \w+ WHERE owner_id\s*=\s*@owner/, `${f} deleteAllByOwner must be owner-scoped`);
+  }
+});
+
+test("erasure of the consult caches DE-IDENTIFIES (MOAT) — owner-scoped, never DELETE", () => {
+  for (const f of ["checktudoConsultas.ts", "infocarConsultas.ts", "kbbConsultas.ts"]) {
+    const src = read(f);
+    const m = src.match(/export async function deidentifyAllByOwner[\s\S]*?\n}/);
+    assert.ok(m, `deidentifyAllByOwner not found in ${f}`);
+    assert.match(m![0], /WHERE owner_id\s*=\s*@owner/, `${f} de-identify must be owner-scoped`);
+    assert.match(m![0], /SET owner_id = NULL/, `${f} must drop the owner link`);
+    assert.doesNotMatch(m![0], /\bDELETE\b/, `${f} must NEVER delete the cache (MOAT)`);
   }
 });
 

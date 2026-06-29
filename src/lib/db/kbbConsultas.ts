@@ -8,6 +8,7 @@ import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
 import { safeColumns } from "./identifiers";
+import { scrubPayloadJson } from "@/lib/lgpd/scrubPii";
 import type { MolicarPayload } from "../pricing/types";
 
 export type KbbConsultaRow = {
@@ -135,12 +136,21 @@ export async function insert(input: InsertInput): Promise<{ id: string }> {
 
 /** Delete every KBB/Molicar consultation owned by a user (account erasure,
  *  Art. 18 VI). Owner-scoped; returns the number of rows removed. */
-export async function deleteAllByOwner(ownerId: string): Promise<number> {
+/** Account erasure (Art. 18 VI): NEVER deletes the cached consult (MOAT). De-
+ *  identifies — owner_id → NULL + scrub owner PII from payload. Owner-scoped. */
+export async function deidentifyAllByOwner(ownerId: string): Promise<number> {
   const p = await getPool();
-  const r = await p.request()
+  const rows = (await p.request()
     .input("owner", sql.UniqueIdentifier, ownerId)
-    .query(`DELETE FROM kbb_consultas WHERE owner_id = @owner`);
-  return r.rowsAffected[0] ?? 0;
+    .query(`SELECT CAST(id AS NVARCHAR(40)) AS id, payload FROM kbb_consultas WHERE owner_id = @owner`)
+  ).recordset as { id: string; payload: string }[];
+  for (const row of rows) {
+    await p.request()
+      .input("id", sql.UniqueIdentifier, row.id)
+      .input("payload", sql.NVarChar(sql.MAX), scrubPayloadJson(row.payload))
+      .query(`UPDATE kbb_consultas SET owner_id = NULL, payload = @payload WHERE id = @id`);
+  }
+  return rows.length;
 }
 
 // Helpers

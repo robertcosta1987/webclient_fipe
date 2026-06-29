@@ -12,6 +12,7 @@ import "server-only";
 import sql from "mssql";
 import { getPool } from "./pool";
 import { safeColumns } from "./identifiers";
+import { scrubPayloadJson } from "@/lib/lgpd/scrubPii";
 import type { ChecktudoData } from "../checktudo/types";
 
 export type ChecktudoConsultaRow = {
@@ -213,12 +214,23 @@ export async function setParecer(id: string, veredito: string | null, motivo: st
 
 /** Delete every CheckTudo consultation owned by a user (account erasure,
  *  Art. 18 VI). Owner-scoped; returns the number of rows removed. */
-export async function deleteAllByOwner(ownerId: string): Promise<number> {
+/** Account erasure (Art. 18 VI) for the cache MOAT: NEVER deletes the cached
+ *  consult (vehicle-data enrichment we sell). De-identifies instead — drops the
+ *  personal linkage (owner_id → NULL) and scrubs owner PII from the payload,
+ *  keeping the vehicle data. Owner-scoped. Returns rows affected. */
+export async function deidentifyAllByOwner(ownerId: string): Promise<number> {
   const p = await getPool();
-  const r = await p.request()
+  const rows = (await p.request()
     .input("owner", sql.UniqueIdentifier, ownerId)
-    .query(`DELETE FROM checktudo_consultas WHERE owner_id = @owner`);
-  return r.rowsAffected[0] ?? 0;
+    .query(`SELECT CAST(id AS NVARCHAR(40)) AS id, payload FROM checktudo_consultas WHERE owner_id = @owner`)
+  ).recordset as { id: string; payload: string }[];
+  for (const row of rows) {
+    await p.request()
+      .input("id", sql.UniqueIdentifier, row.id)
+      .input("payload", sql.NVarChar(sql.MAX), scrubPayloadJson(row.payload))
+      .query(`UPDATE checktudo_consultas SET owner_id = NULL, payload = @payload WHERE id = @id`);
+  }
+  return rows.length;
 }
 
 // ── Summary extraction ──────────────────────────────────────────────────────
