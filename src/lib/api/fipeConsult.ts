@@ -12,6 +12,12 @@ import { makerCode } from "./makerCodes";
 
 export const FIPE_PRODUCT_CODE = 202;
 
+// Partner price = the CheckTudo cost we pay (3k tier = catalog prices[2] for code 202).
+// The two partners (Moneycar/ProfitCar) pay cost, with NO markup/profit. Keep in sync with
+// the storefront catalog's realCost(202); if a new API product is added, price it at its
+// own 3k-tier cost here too.
+export const FIPE_COST_BRL = 0.26;
+
 export type FipePoint = { mes: number; ano: number; valor: number };
 export type FipeData = {
   // Identificação

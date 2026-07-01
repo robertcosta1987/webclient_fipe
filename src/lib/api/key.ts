@@ -9,7 +9,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 import * as users from "@/lib/db/users";
 import * as subs from "@/lib/db/subscriptions";
-import { FIPE_PRODUCT_CODE } from "./fipeConsult";
+import { FIPE_PRODUCT_CODE, FIPE_COST_BRL } from "./fipeConsult";
 
 const KEY_PREFIX = "p360_"; // human-recognizable; not secret
 
@@ -34,7 +34,9 @@ export async function issueApiKeyForEmail(email: string, opts: { priceBrl?: numb
 
   // Make sure the FIPE consult is sellable + contracted (so reserve/record work).
   try {
-    await subs.ensureApiProduct("checktudo", FIPE_PRODUCT_CODE, "Decodificador e Precificador (FIPE)", opts.priceBrl ?? null);
+    // Default to the CheckTudo cost (3k tier) — partners pay cost, no markup. An explicit
+    // priceBrl still overrides (e.g. a non-partner product), but empty = cost.
+    await subs.ensureApiProduct("checktudo", FIPE_PRODUCT_CODE, "Decodificador e Precificador (FIPE)", opts.priceBrl ?? FIPE_COST_BRL);
     if (ctx.subscriptionId) {
       await subs.addQuota({ subscriptionId: ctx.subscriptionId, api: "checktudo", productCode: FIPE_PRODUCT_CODE, granted: null });
     }
