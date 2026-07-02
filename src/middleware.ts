@@ -27,9 +27,12 @@ function isOpen(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Programmatic API: authenticated by its own API key (Bearer / x-api-key),
-  // not the session cookie. Skip the login-redirect guard entirely.
-  if (pathname.startsWith("/api/v1/")) return NextResponse.next();
+  // Programmatic APIs authenticated by their own bearer token, not the session cookie:
+  // the partner consult API (/api/v1) and the token-authed admin provisioning endpoint
+  // (/api/admin, Bearer PLACAS_ADMIN_TOKEN) that the CRM calls. Skip the login-redirect guard.
+  if (pathname.startsWith("/api/v1/") || pathname.startsWith("/api/admin/")) {
+    return NextResponse.next();
+  }
 
   // Always-open pages (e.g. the privacy policy): no auth guard, no redirects.
   if (isOpen(pathname)) return NextResponse.next();
