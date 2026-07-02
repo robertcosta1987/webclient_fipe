@@ -63,6 +63,16 @@ export async function addQuota(input: {
     `);
 }
 
+/** Enable/disable programmatic (API-key) access for a subscription. Required for a
+ *  key to pass the consult route's `api_access` gate. */
+export async function setApiAccess(subscriptionId: string, enabled: boolean): Promise<void> {
+  const p = await getPool();
+  await p.request()
+    .input("s", sql.UniqueIdentifier, subscriptionId)
+    .input("v", sql.Bit, enabled ? 1 : 0)
+    .query(`UPDATE subscriptions SET api_access = @v WHERE id = @s;`);
+}
+
 // ── Enforcement (consumption limits) ──────────────────────────────────────────
 export type SubPlan = { subscriptionId: string; planType: PlanType | null; spendLimitBrl: number | null };
 
